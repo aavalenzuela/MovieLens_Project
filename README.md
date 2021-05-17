@@ -1,2 +1,2 @@
 # MovieLens_Project
-My first
+MovieLens Project is a looking for a better algorithm to the rating movie
