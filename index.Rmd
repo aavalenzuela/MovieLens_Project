@@ -1,0 +1,18 @@
+---
+title: "MovieLens Project"
+subtitle: "Data Analysis and Prediction Algorithms with R"
+author: "Alejandro A Valenzuela"
+date: "`r Sys.Date()`"
+output:
+  
+  pdf_document: default
+  html_document:
+    
+    df_print: paged
+site: bookdown::bookdown_site
+always_allow_html: yes  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
