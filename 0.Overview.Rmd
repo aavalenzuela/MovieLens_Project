@@ -1,5 +1,54 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
 
 # Overview/Executive Summary
-Using the database from MovieLens .....
+
+
+This project has as scope to create a movie recommendation system using the MovieLens dataset. There are two versions of this movielens: one included in the dslabs package is just a small subset of a much larger dataset and the second it is the dataset itself with millions of ratings. This project it is going to work with the last one, this add the difficulty of more data that required more time y computing resources but it gives the opportunity to work with more realistic big data.
+
+
+
+
+...You can find the entire latest MovieLens dataset here. You will be creating your own recommendation system using all the tools we have shown you throughout the courses in this series. We will use the 10M version of the MovieLens dataset to make the computation a little easier. ...
+
+
+
+The MovieLens dataset is a table witch each row it is rating to a movie provided by one user and has the following structure:
+
+```{r initial1, include = FALSE}
+library(dslabs)
+library(tidyverse)
+library(rafalib)
+data("movielens")
+
+```
+
+
+```{r initial2, echo=TRUE}
+names(movielens)
+```
+
+Looking some rows (for space it is shown in two parts)
+```{r initial3, echo=FALSE}
+movielens_head <- head(movielens)
+movielens_head %>% select(movieId,title, year)
+movielens_head %>% select(genres,userId, rating, timestamp)
+```
+
+
+## Evaluation
+The rating is an numeric running from 0.5 througth 5 by 0.5 step. This menas 10 possible options to the user who make the rating.
+For evaluate the algorithm we are going to use the Root Mean Square Error (RMSE)[https://en.wikipedia.org/wiki/Root-mean-square_deviation]. This take avantage of the numeric characteristic of rating and in R can be represented as:
+
+```{r initial4, echo=TRUE}
+RMSE <- function(true_ratings, predicted_ratings){
+  sqrt(mean((true_ratings - predicted_ratings)^2))
+}
+```
+
+
             that describes the dataset and summarizes the goal of the project and key steps that were performed
             
