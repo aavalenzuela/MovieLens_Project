@@ -25,4 +25,136 @@ library(data.table)
 dl <- tempfile()
 ```
 
+```{r initial1, include = FALSE}
+library(dslabs)
+library(tidyverse)
+library(rafalib)
+data("movielens")
+
+edx <- movielens
+
+```
+
+# Loss function
+
+The decision of better estimate will be based on the residual mean squared error (RMSE) on a test set. We define $y_{u,i}$ as the rating for movie $i$ by user $u$ and denote our prediction with $\hat{y}_{u,i}$. The RMSE is then defined as:
+
+$$
+\mbox{RMSE} = \sqrt{\frac{1}{N} \sum_{u,i}^{} \left( \hat{y}_{u,i} - y_{u,i} \right)^2 }
+$$
+with $N$ being the number of user/movie combinations and the sum occurring over all these combinations.
+
+
+# The dataset
+
+The movielens 10M dataset has `r format(nrow(movielens),big.mark=",")` rows but this only  `r format(n_distinct(movielens$movieId),big.mark=",")` different movies and `r format(n_distinct(movielens$userId),big.mark=",")` users. But if we create a matrix of the movies that we have in the dataset and the users we get a matrix of `r  n_distinct(movielens$movieId) * n_distinct(movielens$userId)` elements with a rating witch represent only the `r  format(100 * nrow(movielens)/(n_distinct(movielens$movieId) * n_distinct(movielens$userId)), digits =2, nsmall =2)`% of the matrix. The rest is unknown: the user $u$ did not rate the movie $i$.
+
+
+Other aspect to consider is that not all the movies has the same rating and not the users rate the same amount of movies as we can see in the following histograms:
+
+```{r histograms_M10, echo=FALSE}
+movielens %>% 
+  dplyr::count(movieId) %>% 
+  ggplot(aes(n)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  scale_x_log10() + 
+  ggtitle("Movies rated") +
+  xlab("Number of rate per movie (log scale)")
+
+movielens %>%
+  dplyr::count(userId) %>% 
+  ggplot(aes(n)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  scale_x_log10() +
+  ggtitle("Users who rate") +
+  xlab("Number of users who rate movies (log scale)")
+```
+
+We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
+
+
+# Cleaning
+
+
+# Models
+
+## Fisrt Model...just the average movie rating
+
+The most basic and quick approach it is consider that a rating for a movie is just the average of all rating.
+
+Let's calculate the average and see what RMSE we get:
+
+```{r Fisrt Model}
+mu_hat <- mean(edx$rating)
+mu_hat
+mu_hat_rmse <- RMSE(edx$rating, mu_hat)
+mu_hat_rmse
+```
+Let's see how this distrubation of rating is and we add the means just calculated and one RMSE up and down from this means:
+
+```{r}
+edx %>% group_by(rating) %>% ggplot(aes(rating)) + geom_histogram(bins = 10) + geom_vline(xintercept=mu_hat) +
+  geom_vline(xintercept= c(mu_hat-mu_hat_rmse,mu_hat+mu_hat_rmse), linetype='dashed', color='blue', size=0.5) +
+  ggtitle("Distribution of Rating")
+```
+
+We can appreciate than the RMSE of `r mu_hat_rmse` it is high in the range of the rating> beside that we can see the distribution it is not quite simlar toa Gaussian distribution and the full number rating (1,2,3,4 and 5) are more common than fractional rating (0.5, 1.5, 2.5, 3.5 and 4.5). The work now it is improve this initial RSME
+
+## Cleaning
+
+One aspect in the machine laerning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
+
+```{r}
+movie_rate <- edx %>% 
+  group_by(movieId) %>% 
+  mutate(avg_rating = mean(rating), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres ) %>%
+  distinct()
+
+
+movie_rate %>% arrange(desc(avg_rating))
+
+```
+The best movies we do not see the ones we expected. Is this an error in our knowlegde og movies? Tka e alook to the column n, which atand por the number of rated receibed: it is a value to low 1 or 2 ratied. Let see what is happening with the worse:
+
+```{r}
+movie_rate %>% arrange(avg_rating)
+```
+and we see before in the Movie Distribution that there are a lot of movies with 1 or 2 rating. How many? Can be dropped?
+
+```{r}
+nrow(filter(movie_rate, n <= 2))/nrow(movie_rate)
+
+```
+It is a big group of data. It can not be dropped and it has same information anyway. Can we used? Yes!
+
+### Scaling and Centering the movie rating
+
+```{r}
+edx1 <- edx %>% mutate(centered.rating = scale(rating, scale = FALSE))
+
+```
+
+Now the rating just moved the mu_hat, and the new average in zero. Why? Because when we calculate the average by movie, we do not want to change the average but give more representation to the ones which has more rating and the one with fewer move to the means. The logic behaind is that the probability of the next rate will be the average (in the assuntion of independent event, amongs others)
+
+```{r}
+lambda <- 3
+movie_rate_lambda <- edx1 %>% 
+  group_by(movieId) %>% 
+  mutate(lamda_rating = sum(centered.rating)/(n()+lambda), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
+  distinct()
+```
+
+Now checks the top movies:
+```{r}
+movie_rate_lambda %>% arrange(desc(lamda_rating))
+
+
+
+```
+Now they are better known and have a significative numbers of rating.
+
+
+with $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0 and $\mu$ the "true" rating for all movies. We know that the estimate that minimizes the RMSE is the least squares estimate of $\mu$ and, in this case, is the average of all ratings:
 
