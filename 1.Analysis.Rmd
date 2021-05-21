@@ -25,6 +25,8 @@ library(data.table)
 dl <- tempfile()
 ```
 
+
+
 ```{r initial1, include = FALSE}
 library(dslabs)
 library(tidyverse)
@@ -45,12 +47,56 @@ $$
 with $N$ being the number of user/movie combinations and the sum occurring over all these combinations.
 
 
-# The dataset
+# Data exploration and visualization
+
+## The dataset
 
 The movielens 10M dataset has `r format(nrow(movielens),big.mark=",")` rows but this only  `r format(n_distinct(movielens$movieId),big.mark=",")` different movies and `r format(n_distinct(movielens$userId),big.mark=",")` users. But if we create a matrix of the movies that we have in the dataset and the users we get a matrix of `r  n_distinct(movielens$movieId) * n_distinct(movielens$userId)` elements with a rating witch represent only the `r  format(100 * nrow(movielens)/(n_distinct(movielens$movieId) * n_distinct(movielens$userId)), digits =2, nsmall =2)`% of the matrix. The rest is unknown: the user $u$ did not rate the movie $i$.
 A matrix with mostly empty cells is called sparse, and the opposite to that (a mostly filled matrix) is called dense.
 
-Other aspect to consider is that not all the movies has the same rating and not the users rate the same amount of movies as we can see in the following histograms:
+## Exploration
+Each row in this dataset is and rating to the  movie i by the user u. But more info is stored and we will review initially if we can see some aspect we need to considered in the model.
+
+Remeber, we hace this columns:
+```{r , echo=FALSE}
+names(movielens)
+```
+The features/variables/columns in dataset are:
+
+| Name       | Type     | Description     |
+| :--------- | :------: | :-------------- |
+|**movieId**|`r class(edx$movieId)`|  contains the unique identification number for each movie.
+|**title**|`r class(edx$title)`|  contains the title of each movie.
+|**year**| `r class(edx$year)`| contains the year of the movie release.
+|**genres**|`r class(edx$genres)`| contains a list of pipe-separated of genre of each movie.
+|**userId**|`r class(edx$userId)`| contains the unique identification number for each user.
+|**rating**|`r class(edx$rating)`| contains the rating of one movie by one user. Ratings are made on a 5-Star scale with half-star increments.
+|**timestamp**|`r class(edx$timestamp)`| contains the timestamp for one specific rating provided by one user.
+
+
+
+
+### MovieId
+
+The movieId as its name make reference it s the Id of the movies in this dataset. Could be the title of the movie be enough? If that it is true, the number must be equal (a necessary condition is not a sufficient condition):
+
+```{r, echo=FALSE}
+n_distinct(edx$movieId)
+n_distinct(edx$title)
+
+```
+They are not. This is becuse some movies has the same name but not the same movieId...Why? Because they are released in different year!
+
+```{r, echo=FALSE}
+
+edx %>% group_by(movieId,title,year) %>% summarize(n()) %>% 
+  group_by(title)%>%summarize(n = n(), year = year) %>% filter( n != 1)
+
+```
+
+Then we use the movieID for the analysis and the title it is not, except to show the results to make sense to ourself.
+
+One aspect to consider is that not all the movies has the same numbers of rating, e. gr., some movies has more vote than the others as we can see in the following histograms:
 
 ```{r histograms_M10, echo=FALSE}
 movielens %>% 
@@ -60,7 +106,31 @@ movielens %>%
   scale_x_log10() + 
   ggtitle("Movies rated") +
   xlab("Number of rate per movie (log scale)")
+```
+And obviously, not all the movies are rated equally:
 
+```{r, echo=FALSE}
+movielens %>% 
+  group_by(movieId) %>% 
+  summarise(avg_by_movieId = mean(rating), n = n()) %>%
+  ggplot(aes(avg_by_movieId)) + 
+  geom_histogram(bins = 10, color = "black") + 
+  #scale_x_log10() + 
+  ggtitle("Movies rating") +
+  xlab("Rating")
+```
+### rating
+
+The rating is the value we want to predict but it is present in our dataset.
+
+```{r,echo=FALSE}
+unique(edx$rating) %>% data.frame() %>% arrange_all() %>% t() %>% as.numeric()
+```
+### userId
+
+This is the user who rate or vote. Not the users rate the same amount of movies as we can see in the following histograms:
+
+```{r , echo=FALSE}
 movielens %>%
   dplyr::count(userId) %>% 
   ggplot(aes(n)) + 
@@ -68,84 +138,156 @@ movielens %>%
   scale_x_log10() +
   ggtitle("Users who rate") +
   xlab("Number of users who rate movies (log scale)")
-
-movielens %>%
-  dplyr::count(year) %>% 
-  ggplot(aes(x=year,y=n)) + 
-  geom_line() + 
-  #scale_x_log10() +
-  ggtitle("Year of the movie") +
-  xlab("Number of users who rate movies (log scale)")
-
-
-movielens %>%
-  mutate(date = as.Date(as.POSIXct(timestamp, origin = "1970-01-01"))) %>%
-  dplyr::count(date) %>% 
-  ggplot(aes(n)) + 
-  geom_histogram(bins = 30, color = "black") + 
-  #scale_x_log10() +
-  ggtitle("Timestampof the rate") +
-  xlab("Number of users who rate movies (log scale)")
 ```
 
-We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
-
-
-How is it the rating affected by this predictors?
 
 ```{r}
-movielens %>% 
-  group_by(movieId) %>% 
-  summarise(avg_by_movieId = mean(rating), n = n()) %>%
-  ggplot(aes(avg_by_movieId)) + 
-  geom_histogram(bins = 10, color = "black") + 
-  #scale_x_log10() + 
-  ggtitle("Movies rated") +
-  xlab("Number of rate per movie ")
 
 movielens %>%
   group_by(userId) %>% 
   summarise(avg_by_userId = mean(rating), n = n()) %>%
   ggplot(aes(avg_by_userId)) + 
-  geom_histogram(bins = 30, color = "black") + 
-  scale_x_log10() +
-  ggtitle("Users who rate") +
-  xlab("Number of users who rate movies (log scale)")
+  geom_histogram(bins = 20, color = "black") + 
+  ggtitle("Rating by the users") +
+  xlab("rating")
+```
 
-movielens %>%
-  group_by(year) %>% 
-  summarise(avg_by_year = mean(rating), n = n()) %>%
-  ggplot(aes(avg_by_year)) + 
-  geom_histogram(bins = 30, color = "black") + 
-  #scale_x_log10() +
-  ggtitle("Year of the movie") +
-  xlab("Number of users who rate movies (log scale)")
+#year
+The yaer of the release of the movie can be affected in the rating? Too old movies can be under estemimeted under the new ones?
 
+
+```{r , echo=FALSE}
 movielens %>%
   dplyr::count(year) %>% 
   ggplot(aes(x=year,y=n)) + 
   geom_line() + 
   #scale_x_log10() +
-  ggtitle("Year of the movie") +
-  xlab("Number of users who rate movies (log scale)")
+  ggtitle("Movie rated by Year of the release") +
+  xlab("Year of the release of the movie") +
+  ylab("count")
+```
+Is the rating independent of the year of the movie?
 
+```{r}
+movielens %>%
+  group_by(year) %>% 
+  summarise(avg_by_year = mean(rating), n = n()) %>%
+  ggplot(aes(avg_by_year)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  ggtitle("Rateing by Year of the movie") +
+  xlab("Rating")
+```
+### timestamp
+
+Is the rating process affected by the time? timestamp can help us to find any relationship. First the histogram of the rating:
+
+```{r , echo=FALSE}
+movielens %>%
+  mutate(date = as.Date(as.POSIXct(timestamp, origin = "1970-01-01"))) %>%
+  dplyr::count(date) %>% 
+  ggplot(aes(n)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  scale_x_log10() +
+  ggtitle("Timestamp of the rate") +
+  xlab("Timestamp of rate movies (log scale)")
+
+
+```
+
+The rating procees it is constant over time:
+
+```{r}
 movielens %>%
   dplyr::count(timestamp) %>% 
-  ggplot(aes(x=as.Date(as.POSIXct(timestamp, origin = "1970-01-01")),y=n)) + 
-  geom_line() + 
-  #scale_x_log10() +
-  ggtitle("Timestampof the rate") +
-  xlab("Number of users who rate movies")
+  ggplot(aes(as.Date(as.POSIXct(timestamp, origin = "1970-01-01")))) + 
+  geom_histogram(bins = 30) + 
+  ggtitle("Timestamp of the rated movie") +
+  xlab("Year") +
+  ylab("count")
+```
+But all year the user are rating equal? This histogram shows they do not.
+
+```{r}
+movielens %>%
+  group_by(timestamp) %>% 
+  summarise(avg_by_tm = mean(rating), n = n()) %>%
+  ggplot(aes(avg_by_tm)) + 
+  geom_histogram(bins = 10, color = "black") + 
+  ggtitle("Rateing by Year of the movie") +
+  xlab("Rating")
+```
+
+### genres
+
+The genres in an arbitrary attribute that a move has. Actually can have more than one gender that in this dataset is separated in this column by |.
+
+
+```{r}
+n_distinct(edx$genres)
+```
+Then we have a lot of genres!
+
+
+```{r}
+movielens %>% group_by(genres) %>%
+  summarise(n = n(), rat_gen = mean(rating)) %>%
+  ggplot(aes(rat_gen)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  ggtitle("Gender of the movie") +
+  xlab("rating")
+```
+
+```{r}
+head(edx) %>%
+    select(title, genres)
+```
+
+
+
+We can create a new dataset that separate this genres, making the dataset bigger and taking care of 2 aspects:
+1.- If we do in the training set we hve to do it in the validation set
+2.- **Only** use for genres analysis, because we are going to change the dataset and any other analysis will be mislead
+
+```{r}
+
+edx_genres <- edx %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+head(edx_genres)
 ```
 
 
 ```{r}
-edx %>% ggplot(aes(year)) + geom_histogram(bins = 10)
-edx %>% ggplot(aes(as.Date(as.POSIXct(timestamp, origin = "1970-01-01")))) + geom_histogram(bins = 10)
+n_distinct(edx_genres$genres)
+unique(edx_genres$genres)
+```
+
+Now can we see by genres thare are differences:
+
+```{r}
+edx_genres %>% group_by(genres) %>%
+  summarise(n = n(), rat_gen = mean(rating)) %>%
+  ggplot(aes(rat_gen)) + 
+  geom_histogram(bins = 30, color = "black") + 
+  ggtitle("Gender of the movie") +
+  xlab("rating")
+```
+And we can see that different genres has different average rating:
+```{r, echo=FALSE}
+edx_genres %>% group_by(genres) %>%
+  summarise(n = n(), rat_gen = mean(rating)) %>%
+  ggplot(aes(x= genres, y=rat_gen)) + 
+  geom_point() + 
+  ggtitle("Rating by the Gender") +
+  xlab("Genres") +
+  ylab("rating") +
+  theme(axis.text.x = element_text(angle = 60))   # Rotate axis labels
 ```
 
 
 
+We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
+
+
+How is it the rating affected by this predictors?
 
 
 # Cleaning
