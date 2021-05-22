@@ -7,7 +7,7 @@ output:
 # Overview/Executive Summary
 
 
-This project has as scope to create a movie recommendation system using the MovieLens dataset. There are two versions of this movielens: one included in the dslabs package is just a small subset of a much larger dataset and the second it is the dataset with millions of ratings, called Movielens 10M. This project it is going to work with the last one, this add the difficulty of more data that required more time y computing resources but it gives the opportunity to work with more realistic big data.
+This project has as scope to create a movie recommendation system using the MovieLens dataset. There are severals versions of this movielens, for example one included in the dslabs package is just a small subset of a much larger dataset and the onw we are going to use with a dataset with 10 millions of ratings, called Movielens 10M. This bid dataset add the difficulty of more data that required more time y computing resources, that force to descart some high consume resource algorithm because can not ran in R with this volume in a short period but it gives the opportunity to work with more realistic big data.
 
 This prediction systems will be validated using part of this dataset, part that is not used in the training.
 
@@ -23,7 +23,7 @@ The inputs to these systems are item’s data, user profile and most importantly
 
 The MovieLens dataset is a table witch each row it is rating to a movie provided by one user and has the following structure:
 
-```{r initial1, include = FALSE}
+```{r , include = FALSE}
 library(dslabs)
 library(tidyverse)
 library(rafalib)

@@ -1,0 +1,214 @@
+
+
+
+
+
+How is it the rating affected by this predictors?
+
+## Fisrt Model...just the average movie rating
+We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
+
+The most basic and quick approach it is consider that a rating for a movie is just the average of all rating, e. gr., assumes the same rating for all movies and all users
+
+
+$$
+ y_{u,i} = \mu + \varepsilon_{i,u}
+$$
+with $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0 and $\mu$ the "true" rating for all movies......
+
+Let's calculate the average and see what RMSE we get:
+
+```{r Fisrt Model}
+mu_hat <- mean(edx$rating)
+mu_hat
+mu_hat_rmse <- RMSE(edx$rating, mu_hat)
+mu_hat_rmse
+```
+Let's see how this distrubation of rating is and we add the means just calculated and one RMSE up and down from this means:
+
+```{r}
+edx %>% group_by(rating) %>% ggplot(aes(rating)) + geom_histogram(bins = 10) + geom_vline(xintercept=mu_hat) +
+  geom_vline(xintercept= c(mu_hat-mu_hat_rmse,mu_hat+mu_hat_rmse), linetype='dashed', color='blue', size=0.5) +
+  ggtitle("Distribution of Rating")
+```
+
+We can appreciate than the RMSE of `r mu_hat_rmse` it is high in the range of the rating> beside that we can see the distribution it is not quite similar to a Gaussian distribution and the full number rating (1,2,3,4 and 5) are more common than fractional rating (0.5, 1.5, 2.5, 3.5 and 4.5). The work now it is improve this initial RSME
+
+## Cleaning
+
+One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
+
+```{r}
+movie_rate <- edx %>% 
+  group_by(movieId) %>% 
+  mutate(avg_rating = mean(rating), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres ) %>%
+  distinct()
+
+
+movie_rate %>% arrange(desc(avg_rating))
+
+```
+The best movies we do not see the ones we expected. Is this an error in our knowledge of movies? Take a look to the column n, which n stand por the number of rated received: it is a value to low 1 or 2 rated. Let see what is happening with the worse:
+
+```{r}
+movie_rate %>% arrange(avg_rating)
+```
+and we see before in the Movie Distribution that there are a lot of movies with 1 or 2 rating. How many? Can be dropped?
+
+```{r}
+nrow(filter(movie_rate, n <= 2))/nrow(movie_rate)
+
+```
+It is a big group of data. It can not be dropped and it has same information anyway. Can we used? Yes!
+
+### Centering the movie rating
+
+```{r}
+edx1 <- edx %>% mutate(centered.rating = scale(rating, scale = FALSE))
+
+```
+
+Now the rating just moved the mu_hat, and the new average in zero. Why? Because when we calculate the average by movie, we do not want to change the average but give more representation to the ones which has more rating and the one with fewer move to the means. The logic behaind is that the probability of the next rate will be the average (in the assuntion of independent event, amongs others)
+
+```{r}
+lambda <- 3
+movie_rate_lambda <- edx1 %>% 
+  group_by(movieId) %>% 
+  mutate(lamda_rating = sum(centered.rating)/(n()+lambda), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
+  distinct()
+
+edx2 <- edx1 %>% 
+  group_by(movieId) %>% 
+  mutate(lamda_rating = sum(centered.rating)/(n()+lambda), n = n())# %>%
+  #select(-rating, -timestamp, -genres, -centered.rating ) %>%
+  #distinct()
+```
+
+Now checks the top movies:
+```{r}
+movie_rate_lambda %>% arrange(desc(lamda_rating))
+
+
+
+```
+Now they are better known and have a significative numbers of rating.
+
+
+### Movie effect
+
+Some movies are over the average and other under it. Can be see that in the data? Is there some preference for some movies over others? This is the code assuming that there is one effect for the movie itseft (one item has better preference than other)
+
+$$
+ y_{u,i} = \mu + b_{i} + \varepsilon_{i,u}
+$$
+
+with $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0 and $\mu$ the "true" rating for all movies and $b_{i}$ the average rating for movie i or the "movie effect".
+
+```{r}
+movie_effect_avgs <- movie_rate_lambda %>% 
+  group_by(movieId) %>% 
+  mutate(b_i = mean(lamda_rating)) %>%
+  #select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
+  distinct()
+
+edx3 <- edx2 %>% 
+  group_by(movieId) %>% 
+  mutate(b_i = mean(lamda_rating)) %>%
+  #select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
+  distinct()
+
+movie_effect_avgs
+```
+
+
+Let see how this movie effect is distributed:
+```{r}
+b_i_avg <- mean(movie_effect_avgs$b_i)
+movie_effect_avgs %>%
+ ggplot(aes(b_i)) + 
+  geom_histogram(bins = 10, color = "black") + 
+  ggtitle("Movie effect") +
+  geom_vline(xintercept = b_i_avg, linetype='dashed', color='blue', size=0.5) +
+  xlab("b_i")
+```
+
+Now compute the RMSE
+
+```{r}
+predicted_ratings <- mu_hat + edx1 %>% 
+     left_join(movie_effect_avgs, by='movieId') %>%
+     .$b_i
+
+model_1_rmse <- RMSE(edx$rating, predicted_ratings)
+mean(model_1_rmse)
+```
+### User effect
+
+We just considered the movie. What is about the user? All the user rate equal the same movie...certanlly not.
+
+The we can have a new model:
+
+$$
+ y_{u,i} = \mu + b_{i} + b_{u} + \varepsilon_{i,u}
+$$
+
+ $\mu$ the "true" rating for all movies and $b_{i}$ the average rating for movie i or the "movie effect" and $b_{u}$ the average rating for user u or "user effect" and $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0
+
+Let's calcuate this $b_{u}$:
+
+```{r}
+user_avgs <- edx1 %>% 
+  left_join(movie_effect_avgs, by='movieId') %>%
+  group_by(userId) %>%
+  summarize(b_u = mean(lamda_rating - b_i))
+
+edx4 <- edx3 %>% 
+  #left_join(movie_effect_avgs, by='movieId') %>%
+  group_by(userId) %>%
+  mutate(b_u = mean(rating - mu_hat - b_i)) #%>%
+  #distinct()
+
+
+
+b_u_avg <- mean(user_avgs$b_u)
+```
+
+
+```{r}
+edx2 %>% 
+  group_by(userId) %>% 
+  summarize(b_u = mean(lamda_rating )) %>% 
+  filter(n()>=100) %>%
+  ggplot(aes(b_u)) + 
+  geom_histogram(bins = 30, color = "black") +
+  ggtitle("User effect") +
+  geom_vline(xintercept = b_u_avg, linetype='dashed', color='blue', size=0.5) +
+  xlab("b_u")
+
+# init
+edx4 %>% 
+  group_by(userId) %>% 
+  summarize(b_u = mean(rating - mu_hat - b_i)) %>% 
+  filter(n()>=100) %>%
+  ggplot(aes(b_u)) + 
+  geom_histogram(bins = 30, color = "black")
+```
+The RMSE
+
+
+```{r}
+
+predicted_ratings <-  edx4 %>% 
+  #left_join(movie_effect_avgs, by='movieId') %>%
+  #left_join(user_avgs, by='userId') %>%
+  mutate(pred = mu_hat + b_i + b_u) %>%
+  .$pred
+
+model_2_rmse <- RMSE(edx$rating, predicted_ratings)
+mean(model_2_rmse)
+```
+see movie_effect_avgs & movie_avgs....
+
+with scale we take out user effect.....

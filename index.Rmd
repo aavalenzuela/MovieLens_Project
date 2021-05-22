@@ -3,13 +3,14 @@ title: "MovieLens Project"
 subtitle: "Data Analysis and Prediction Algorithms with R"
 author: "Alejandro A Valenzuela"
 date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+
 output:
-  
+
+  pdf_document: default
   html_document:
     
     df_print: paged
-  pdf_document: default
-site: bookdown::bookdown_site
 always_allow_html: yes  
 description: This book introduces concepts and skills that can help you tackle real-world
   data analysis challenges. It covers concepts from probability, statistical inference,
