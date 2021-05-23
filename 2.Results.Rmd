@@ -6,3 +6,96 @@
     
 
 
+```{r}
+# Predict the RMSE on the validation set
+rmse_mean_model_result <- RMSE(validation$rating, mu_hat)
+# Creating a results dataframe that contains all RMSE results
+results <- data.frame(model="Naive Mean-Baseline Model", RMSE=rmse_mean_model_result)
+```
+
+```{r}
+results %>% knitr::kable()
+```
+
+
+```{r}
+movie_avgs <- edx %>%
+   group_by(movieId) %>%
+   summarize(b_i = mean(rating - mu_hat))
+# Compute the predicted ratings on validation dataset
+rmse_movie_model <- validation %>%
+   left_join(movie_avgs, by='movieId') %>%
+   mutate(pred = mu_hat + b_i) %>%
+   pull(pred)
+rmse_movie_model_result <- RMSE(validation$rating, rmse_movie_model)
+# Adding the results to the results dataset
+results <- results %>% add_row(model="Movie-Based Model", RMSE=rmse_movie_model_result)
+```
+
+```{r}
+results %>% knitr::kable()
+```
+
+
+```{r}
+# Calculate the average by movie
+movie_avgs <- edx %>%
+   group_by(movieId) %>%
+   summarize(b_i = mean(rating - mu_hat))
+# Calculate the average by user
+user_avgs <- edx %>%
+   left_join(movie_avgs, by='movieId') %>%
+   group_by(userId) %>%
+   summarize(b_u = mean(rating - mu_hat - b_i))
+# Compute the predicted ratings on validation dataset
+rmse_movie_user_model <- validation %>%
+   left_join(movie_avgs, by='movieId') %>%
+   left_join(user_avgs, by='userId') %>%
+   mutate(pred = mu_hat + b_i + b_u) %>%
+   pull(pred)
+rmse_movie_user_model_result <- RMSE(validation$rating, rmse_movie_user_model)
+# Adding the results to the results dataset
+results <- results %>% add_row(model="Movie+User Based Model", RMSE=rmse_movie_user_model_result)
+```
+
+
+```{r}
+results %>% knitr::kable()
+```
+
+```{r}
+
+new_edx <- edx %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+new_validation <- validation  %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+
+# Calculate the average by movie
+movie_avgs <- edx %>%
+   group_by(movieId) %>%
+   summarize(b_i = mean(rating - mu_hat))
+# Calculate the average by user
+user_avgs <- edx %>%
+   left_join(movie_avgs, by='movieId') %>%
+   group_by(userId) %>%
+   summarize(b_u = mean(rating - mu_hat - b_i))
+genre_pop <- edx %>% 
+   left_join(movie_avgs, by='movieId') %>%
+   left_join(user_avgs, by='userId') %>%
+   group_by(genre) %>%
+   summarize(b_u_g = mean(rating - mu_hat - b_i - b_u))
+# Compute the predicted ratings on validation dataset
+rmse_movie_user_genre_model <- new_validation %>%
+   left_join(movie_avgs, by='movieId') %>%
+   left_join(user_avgs, by='userId') %>%
+   left_join(genre_pop, by='genre') %>%
+   mutate(pred = mu_hat + b_i + b_u + b_u_g) %>%
+   pull(pred)
+rmse_movie_user_genre_model_result <- RMSE(validation$rating, rmse_movie_user_genre_model)
+# Adding the results to the results dataset
+results <- results %>% add_row(model="Movie+User+Genre Based Model", RMSE=rmse_movie_user_genre_model_result)
+```
+
+
+
+```{r}
+results %>% knitr::kable()
+```
