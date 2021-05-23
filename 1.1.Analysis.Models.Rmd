@@ -107,6 +107,11 @@ rmse_results %>% knitr::kable()
 One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
 
 ```{r, echo=FALSE}
+movie_rate <- edx %>%
+  group_by(movieId) %>%
+  mutate(avg_rating = mean(rating), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres ) %>%
+  distinct()
 
 movie_rate %>% arrange(desc(avg_rating))
 
@@ -243,6 +248,7 @@ Let's calcuate this $b_{u}$:
 
 
 ```{r}
+#delete this
 user_avgs <- train_set %>% 
      left_join(movie_reg_avgs, by='movieId') %>%
      group_by(userId) %>%
@@ -255,6 +261,24 @@ predicted_ratings <- test_set %>%
 RMSE(predicted_ratings, test_set$rating)
 
 ```
+this do not usergularization:
+
+```{r}
+#or delete this
+
+user_avgs <- train_set %>% 
+     left_join(movie_avgs, by='movieId') %>%
+     group_by(userId) %>%
+     summarize(b_u = mean(rating - mu - b_i))
+predicted_ratings <- test_set %>% 
+     left_join(movie_avgs, by='movieId') %>%
+     left_join(user_avgs, by='userId') %>%
+     mutate(pred = mu + b_i + b_u) %>%
+     .$pred
+RMSE(predicted_ratings, test_set$rating)
+
+```
+
 
 ```{r}
 rmse_movie_model_reg_user <- RMSE(predicted_ratings, test_set$rating)
@@ -337,7 +361,14 @@ Calculating RMSE:
  RMSE(predicted_ratings, test_set$rating)
 
 # new version
-     predicted_ratings <- 
+ 
+ user_reg_avgs <- train_set %>% 
+          left_join(b_i, by="movieId") %>%
+          group_by(userId) %>%
+          summarize(b_u = sum(rating - b_i - mu)/(n()+lambda_u))
+ 
+ 
+ predicted_ratings <- 
           test_set %>% 
           left_join(movie_reg_avgs, by = "movieId") %>%
           left_join(user_reg_avgs, by = "userId") %>%
@@ -361,6 +392,22 @@ rmse_results <- bind_rows(rmse_results,
 rmse_results %>% knitr::kable()
 ```
 
+### Year
+
+
+```{r}
+year_avgs <- train_set %>% 
+     group_by(year) %>%
+     summarize(b_y = mean(rating - mu))
+predicted_ratings <- test_set %>% 
+     left_join(movie_avgs, by='movieId') %>%
+     left_join(user_avgs, by='userId') %>%
+     mutate(pred = mu + b_i + b_u) %>%
+     .$pred
+RMSE(predicted_ratings, test_set$rating)
+```
+
+
 
 
 ### Genres....
@@ -368,16 +415,14 @@ rmse_results %>% knitr::kable()
 
 ```{r}
 
- user_reg_avgs <- train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          group_by(userId) %>%
-          summarize(b_u = sum(rating - b_i - mu)/(n()+lambda_u))
 
-genre_avgs <- train_set %>%
+genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
    left_join(movie_reg_avgs, by='movieId') %>%
    left_join(user_reg_avgs, by='userId') %>%
    group_by(genres) %>%
-   summarize(b_u_g = mean(rating - mu - b_i - b_u))
+   summarize(b_g = mean(rating - mu - b_i - b_u))
+
+
 ```
 
 
@@ -385,18 +430,175 @@ Calculating RMSE:
 
 ```{r}
 
- # new version
+new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+
      predicted_ratings <- 
-          test_set %>% 
+          new_test_set %>% 
           left_join(movie_reg_avgs, by = "movieId") %>%
           left_join(user_reg_avgs, by = "userId") %>%
           left_join(genre_avgs, by = "genres") %>%
-          mutate(pred = mu + b_i + b_u) %>%
+          mutate(pred = mu + b_i + b_u + ifelse(is.na(b_g),0,b_g)) %>%
           .$pred
-     
- RMSE(predicted_ratings, test_set$rating)
+ RMSE(predicted_ratings, new_test_set$rating)
 
 ```
+Now adding the user for genres:
+
+```{r}
+user_genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
+   left_join(movie_reg_avgs, by='movieId') %>%
+   left_join(user_reg_avgs, by='userId') %>%
+  left_join(genre_avgs, by = "genres") %>%
+   group_by(userId, genres) %>%
+   summarize(b_u_g = mean(rating - mu - b_i - b_u - b_g))
+
+ # new version
+     predicted_ratings <- 
+          new_test_set %>% 
+          left_join(movie_reg_avgs, by = "movieId") %>%
+          left_join(user_reg_avgs, by = "userId") %>%
+          left_join(genre_avgs, by = "genres") %>%
+          left_join(user_genre_avgs, by = c("userId","genres")) %>%
+          mutate(pred = mu + b_i + b_u + b_g + ifelse(is.na(b_u_g),0,b_u_g)) %>%
+          .$pred
+     
+ RMSE(predicted_ratings, new_test_set$rating)
+```
+
+
+```{r}
+#delete this or the previous...this is better!
+user_genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
+   left_join(movie_reg_avgs, by='movieId') %>%
+   left_join(user_reg_avgs, by='userId') %>%
+   group_by(userId, genres) %>%
+   summarize(b_u_g = mean(rating - mu - b_i - b_u ))
+
+ # new version
+     predicted_ratings <- 
+          new_test_set %>% 
+          left_join(movie_reg_avgs, by = "movieId") %>%
+          left_join(user_reg_avgs, by = "userId") %>%
+          left_join(genre_avgs, by = "genres") %>%
+          left_join(user_genre_avgs, by = c("userId","genres")) %>%
+          mutate(pred = mu + b_i + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
+          .$pred
+     
+ RMSE(predicted_ratings, new_test_set$rating)
+
+```
+
+
+
+
+
+
+
+
+
+
+Obtaaining parameer  $\lambda$:
+
+```{r}
+new_train_set <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+
+lambdas <- seq(0, 100, 5)
+rmses <- sapply(lambdas, function(l){
+     mu <- mean(train_set$rating)
+     b_i <- new_train_set %>%
+          group_by(movieId) %>%
+          summarize(b_i = sum(rating - mu)/(n()+l))
+     b_u <- new_train_set %>% 
+          left_join(b_i, by="movieId") %>%
+          group_by(userId) %>%
+          summarize(b_u = sum(rating - b_i - mu)/(n()+l))
+     b_g_u <- new_train_set %>% 
+          left_join(b_i, by="movieId") %>%
+          left_join(b_u, by="userId") %>%
+          group_by(genres) %>%
+          summarize(b_g_u = sum(rating - b_u - b_i - mu)/(n()+l))
+     predicted_ratings <- 
+          new_test_set %>% 
+          left_join(b_i, by = "movieId") %>%
+          left_join(b_u, by = "userId") %>%
+          left_join(b_g_u, by = "genres") %>%
+          mutate(pred = mu + b_i + b_u + b_g_u) %>%
+          .$pred
+     return(RMSE(predicted_ratings, test_set$rating))
+})
+
+qplot(lambdas, rmses)  
+
+lambda <- lambdas[which.min(rmses)]
+lambda
+rmses[lambda]
+# no good
+```
+
+
+
+```{r}
+#from book
+lambdas <- seq(0, 10, 0.25)
+rmses <- sapply(lambdas, function(l){
+     mu <- mean(train_set$rating)
+     b_i <- train_set %>%
+          group_by(movieId) %>%
+          summarize(b_i = sum(rating - mu)/(n()+l))
+     b_u <- train_set %>% 
+          left_join(b_i, by="movieId") %>%
+          group_by(userId) %>%
+          summarize(b_u = sum(rating - b_i - mu)/(n()+l))
+     predicted_ratings <- 
+          test_set %>% 
+          left_join(b_i, by = "movieId") %>%
+          left_join(b_u, by = "userId") %>%
+          mutate(pred = mu + b_i + b_u) %>%
+          .$pred
+     return(RMSE(predicted_ratings, test_set$rating))
+})
+
+qplot(lambdas, rmses)  
+
+lambda <- lambdas[which.min(rmses)]
+lambda
+rmses[lambda]
+ min(rmses)
+```
+
+
+
+No regularization:
+
+```{r}
+
+genre_avgs1 <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
+   left_join(movie_avgs, by='movieId') %>%
+   left_join(user_avgs, by='userId') %>%
+   group_by(userId, genres) %>%
+   summarize(b_u_g = mean(rating - mu - b_i - b_u))
+
+
+
+new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+ # new version
+     predicted_ratings <- 
+          new_test_set %>% 
+          left_join(movie_avgs, by = "movieId") %>%
+          left_join(user_avgs, by = "userId") %>%
+          left_join(genre_avgs1, by = c("userId","genres")) %>%
+          mutate(pred = mu + b_i + b_u + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
+          .$pred
+     
+ RMSE(predicted_ratings, new_test_set$rating)
+
+```
+
+
+
+
+
+
 
 
 

@@ -177,7 +177,7 @@ movielens %>%
   summarise(avg_by_year = mean(rating), n = n()) %>%
   ggplot(aes(avg_by_year)) + 
   geom_histogram(bins = 30, color = "black") + 
-  ggtitle("Rateing by Year of the movie") +
+  ggtitle("Rating by Year of the movie") +
   xlab("Rating")
 ```
 
