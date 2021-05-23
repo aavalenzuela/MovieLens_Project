@@ -46,7 +46,7 @@ movielens_head %>% select(genres,userId, rating, timestamp)
 
 ## Evaluation
 The rating is an numeric running from 0.5 througth 5 by 0.5 step. This menas 10 possible options to the user who make the rating.
-For evaluate the algorithm we are going to use the Root Mean Square Error (RMSE)[https://en.wikipedia.org/wiki/Root-mean-square_deviation]. This take avantage of the numeric characteristic of rating and in R can be represented as:
+For evaluate the algorithm we are going to use the Root Mean Square Error (RMSE) [https://en.wikipedia.org/wiki/Root-mean-square_deviation]. This take advantage of the numeric characteristic of rating and in R can be represented as:
 
 ```{r initial4, echo=TRUE}
 RMSE <- function(true_ratings, predicted_ratings){
@@ -57,7 +57,7 @@ RMSE <- function(true_ratings, predicted_ratings){
 ## Approach
 The develop of this predicting rating system for moveis can be explained in the follows steps:
 
-1.- Start creating the model and explained why this approach was taken. The main, but not the only, approach is in base of Data Science: Machine Learning from	Harvard University (course HarvardX+PH125.8x). The objective of the final model it is to get and get  a RSME less than xxxx in the validation set.
+1.- Start creating the model and explained why this approach was taken. The main, but not the only, approach is in base of Data Science: Machine Learning from	Harvard University (course HarvardX+PH125.8x). The objective of the final model it is to get and get a RMSE < 0.86490 in the validation set.
 
 The algorithm is developed using the training (edx) set. For a final test of the final algorithm, predict movie ratings in the validation set (the final hold-out test set) as if they were unknown. In others words, the validation data (the final hold-out test set) should NOT be used for training, developing, or selecting your algorithm and it should ONLY be used for evaluating the RMSE of your final algorithm
 
@@ -67,3 +67,4 @@ The algorithm is developed using the training (edx) set. For a final test of the
 
             that describes the dataset and summarizes the goal of the project and key steps that were performed
             
+\newpage
