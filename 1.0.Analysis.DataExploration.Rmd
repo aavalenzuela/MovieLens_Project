@@ -122,7 +122,7 @@ n_distinct(edx$movieId)
 n_distinct(edx$title)
 
 ```
-They are not. This is becuse some movies has the same name but not the same movieId...Why? Because they are released in different year!
+They are not. This is because some movies has the same title but not the same movieId...Why? Because they are released in different year!
 
 ```{r, echo=FALSE, message=FALSE}
 
