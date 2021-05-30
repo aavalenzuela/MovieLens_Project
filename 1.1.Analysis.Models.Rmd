@@ -1,19 +1,13 @@
-
-
-
-
-
-How is it the rating affected by this predictors?
-
 ## Fisrt Model...just the average movie rating
 
 ```{r}
-library(caret)
+# To construct our model, create our training and test
+
 set.seed(755)
-test_index <- createDataPartition(y = movielens$rating, times = 1,
+test_index <- createDataPartition(y = edx$rating, times = 1,
                                   p = 0.2, list = FALSE)
-train_set <- movielens[-test_index,]
-test_set <- movielens[test_index,]
+train_set <- edx[-test_index,]
+test_set <- edx[test_index,]
 test_set <- test_set %>% 
      semi_join(train_set, by = "movieId") %>%
      semi_join(train_set, by = "userId")
@@ -22,7 +16,7 @@ test_set <- test_set %>%
 
 We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
 
-The most basic and quick approach it is consider that a rating for a movie is just the average of all rating, e. gr., assumes the same rating for all movies and all users
+The most basic and quick approach it is consider that a rating for a movie is just the average of all rating, e. gr., assumes the same rating for all movies and all users.
 
 
 $$
@@ -37,31 +31,31 @@ Let's calculate the average and see what RMSE we get:
 mu <- mean(train_set$rating)
 mu
 # Predict the RMSE on the test set
-rmse_mean <- RMSE(test_set$rating, mu)
-rmse_mean
+rmse_naive_mean_model_result <- RMSE(test_set$rating, mu)
+rmse_naive_mean_model_result
 ```
 Let's see how this distribution of rating is and we add the means just calculated and one RMSE up and down from this means:
 
 ```{r, echo=FALSE}
 edx %>% group_by(rating) %>% ggplot(aes(rating)) + geom_histogram(bins = 10) + geom_vline(xintercept=mu) +
-  geom_vline(xintercept= c(mu - mu_rmse, mu + mu_rmse), linetype='dashed', color='blue', size=0.5) +
+  geom_vline(xintercept= c(mu - rmse_naive_mean_model_result, mu + rmse_naive_mean_model_result), linetype='dashed', color='blue', size=0.5) +
   ggtitle("Distribution of Rating")
 ```
 
-We can appreciate than the RMSE of `r mu_rmse` it is high in the range of the rating. It is not close to the target and beside that we can see the distribution it is not quite similar to a Gaussian distribution and the full number rating (1,2,3,4 and 5) are more common than fractional rating (0.5, 1.5, 2.5, 3.5 and 4.5). The work now it is improve this initial RSME
+We can appreciate than the RMSE of `r rmse_naive_mean_model_result` it is high in the range of the rating. It is not close to the target  and the full number rating (1,2,3,4 and 5) are more common than fractional rating (0.5, 1.5, 2.5, 3.5 and 4.5). The work now it is improve this initial RSME.
 
 
-
+For our recond, we keep this first model:
 
 
 ```{r,echo=FALSE}
 # Creating a results dataframe that contains all RMSE results
-rmse_results <- data.frame(model="Naive Mean-Baseline Model", RMSE = rmse_mean)
+rmse_results <- data.frame(model="Naive Mean-Baseline Model", RMSE = rmse_naive_mean_model_result)
 ```
 
 
-```{r}
-rmse_results
+```{r, echo=FALSE}
+rmse_results %>% knitr::kable()
 ```
 
 
@@ -89,7 +83,7 @@ movie_avgs <- train_set %>%
 
 
 And see how this perform in the test dataset:
-```{r}
+```{r, echo=FALSE}
 # Compute the predicted ratings on test dataset
 predicted_ratings <- test_set %>% 
    left_join(movie_avgs, by='movieId') %>%
@@ -97,16 +91,21 @@ predicted_ratings <- test_set %>%
    .$pred
 ```
 and calculate the RMSE
-```{r}
+```{r, echo=FALSE}
 rmse_movie_model_result <- RMSE(test_set$rating, predicted_ratings)
 rmse_results <- bind_rows(rmse_results,
                           data.frame(model="Movie-Based Model",
                                      RMSE = rmse_movie_model_result ))
 ```
 
-```{r}
+```{r, echo=FALSE}
 rmse_results %>% knitr::kable()
 ```
+
+We see that adding the movie we get a great improvement in our prediction. But we need to continue because we did not get to the target 
+
+
+
 
 
 
@@ -131,7 +130,10 @@ user_avgs <- train_set %>%
      left_join(movie_avgs, by='movieId') %>%
      group_by(userId) %>%
      summarize(b_u = mean(rating - mu - b_i))
+```
 
+
+```{r, echo=FALSE}
 # Compute the predicted ratings on test dataset
 predicted_ratings <- test_set %>% 
      left_join(movie_avgs, by='movieId') %>%
@@ -139,26 +141,196 @@ predicted_ratings <- test_set %>%
      mutate(pred = mu + b_i + b_u) %>%
      .$pred
 
-RMSE(predicted_ratings, test_set$rating)
+#RMSE(predicted_ratings, test_set$rating)
 # 0.9049899 
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 rmse_movie_user_model_result <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
                           data.frame(model="Movie-Based + User Effects Model",  
                                      RMSE = rmse_movie_user_model_result ))
 ```
 
-```{r}
+```{r, echo=FALSE}
 rmse_results %>% knitr::kable()
 ```
+
+
+Considering the user we obtain a new improvement. We are now close to our target.
+
+
+
+
 
 
 ## Regularization
 
 
+
+### Movie-Based Model Regularization
+
+One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
+
+```{r, echo=FALSE}
+movie_rate <- edx %>%
+  group_by(movieId) %>%
+  mutate(avg_rating = mean(rating), n = n()) %>%
+  select(-rating, -userId, -timestamp, -genres ) %>%
+  distinct()
+
+movie_rate %>% arrange(desc(avg_rating))
+
+```
+The best movies we do not see the ones we expected. Is this an error in our knowledge of movies? Take a look to the column n, which n stand for the number of rated received: it is a value to low 1 or 2 rated. Let see what is happening with the worse movies:
+
+```{r, echo=FALSE}
+movie_rate %>% arrange(avg_rating)
+```
+We see the same behavior.
+
+This lead us to anew model
+
+$$
+ y_{u,i} = \mu + b_{i,r} + \varepsilon_{i,u}
+$$
+ $\mu$ the "true" rating for all movies and $b_{i,r}$ the average rating for movie i or the "movie effect" considering the numbers of votes that the move has and $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0.
+
+We see before in the Movie Distribution that there are a lot of movies with 1 or 2 rating. How many? Can be dropped?
+
+```{r, echo=FALSE}
+nrow(filter(movie_rate, n <= 2))/nrow(movie_rate)
+
+```
+It is not a big group of data. It can be dropped but it has same information anyway. Can we used? Yes! Here we found the concept of *regularization*.
+
+Regularization constrains the total variability of the effect sizes by penalizing large estimates that come from small sample sizes.
+
+Let's start with a $\lambda_{i}$ equal to 3 and see the effect, only considering movies (no users).
+
+```{r, echo=FALSE}
+lambda <- 3
+mu <- mean(train_set$rating)
+
+# New Movies average but now with regularization 
+movie_reg_avgs <- train_set %>% 
+     group_by(movieId) %>% 
+     summarize(b_i = sum(rating - mu)/(n()+lambda), n = n()) 
+
+data.frame(original = movie_avgs$b_i, 
+           regularlized = movie_reg_avgs$b_i, 
+           n = movie_reg_avgs$n) %>%
+     ggplot(aes(original, regularlized, size=sqrt(n))) + 
+     geom_point(shape=1, alpha=0.5)
+```
+
+The rating of a movie with low "votes" is moved to the mean. Let see whats is happening with this most and worst movies with this change
+
+```{r, message=FALSE, echo=FALSE, error=FALSE}
+movie_titles <- edx %>% 
+     select(movieId, title) %>%
+     distinct()
+
+# New Movies average but now with regularization see without are most and worse popular
+movie_reg_avgs %>% 
+   left_join(movie_titles, by="movieId") %>%
+   arrange(desc(b_i)) %>% 
+     knitr::kable()
+
+movie_reg_avgs %>% 
+   left_join(movie_titles, by="movieId") %>%
+   arrange(b_i) %>% 
+     knitr::kable()
+```
+
+
+
+
+
+```{r, message=FALSE, echo=FALSE}
+#delete
+movie_titles <- edx %>% 
+     select(movieId, title) %>%
+     distinct()
+
+train_set %>%
+     dplyr::count(movieId) %>% 
+     left_join(movie_avgs) %>%
+     left_join(movie_titles, by="movieId") %>%
+     arrange(desc(b_i)) %>% 
+     select(title, b_i, n) %>% 
+     slice(1:10) %>% 
+     knitr::kable()
+
+train_set %>%
+     dplyr::count(movieId) %>% 
+     left_join(movie_avgs) %>%
+     left_join(movie_titles, by="movieId") %>%
+     arrange(b_i) %>% 
+     select(title, b_i, n) %>% 
+     slice(1:10) %>% 
+     knitr::kable()
+```
+
+Now we can see in the better rating ones that are more well know and the numbers of rating it is not close to 1.
+
+
+Initially we select $\lambda_{i}$ = 3, but can we have a better value?
+
+
+```{r, echo=FALSE}
+lambdas <- seq(0, 10, 0.25)
+mu <- mean(train_set$rating)
+just_the_sum <- train_set %>% 
+     group_by(movieId) %>% 
+     summarize(s = sum(rating - mu), n_i = n())
+rmses <- sapply(lambdas, function(l){
+     predicted_ratings <- test_set %>% 
+          left_join(just_the_sum, by='movieId') %>% 
+          mutate(b_i = s/(n_i+l)) %>%
+          mutate(pred = mu + b_i) %>%
+          .$pred
+     return(RMSE(predicted_ratings, test_set$rating))
+})
+qplot(lambdas, rmses)  
+lambda_i <-lambdas[which.min(rmses)]
+lambda_i
+```
+
+Yes, $\lambda_{i}$ = `r lambda_i` give us the better RMSE. Let's calculate now the RMSE.
+
+```{r, echo=FALSE}
+predicted_ratings <- test_set %>% 
+          left_join(just_the_sum, by='movieId') %>% 
+          mutate(b_i = s/(n_i+lambda_i)) %>%
+          mutate(pred = mu + b_i) %>%
+          .$pred
+
+ #RMSE(predicted_ratings, test_set$rating)
+```
+
+```{r, echo=FALSE}
+rmse_movie_model_reg <- RMSE(test_set$rating, predicted_ratings)
+rmse_results <- bind_rows(rmse_results,
+                          data.frame(model="Movie-Based Model Regularization + User effect",
+                                     RMSE = rmse_movie_model_reg ))
+```
+
+```{r, echo=FALSE}
+rmse_results %>% knitr::kable()
+rm(just_the_sum)
+```
+
+We see that with movie regularization we are worse. But if we try to regularize both movie and user at the same time? This is the approach in the next section.
+
+
+
+### Movie and user regularization
+
+Now er are going to see the effect of regularization using $\lambda$ that consider both predictor: movie and user.
+
+Obtaining  the parameter  $\lambda$:
 
 ```{r}
 #from book
@@ -181,18 +353,21 @@ rmses <- sapply(lambdas, function(l){
      return(RMSE(predicted_ratings, test_set$rating))
 })
 
-qplot(lambdas, rmses)  
-
-lambda <- lambdas[which.min(rmses)]
-lambda
-rmses[lambda]
- min(rmses)
+qplot(lambdas, rmses)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
+lambda <- lambdas[which.min(rmses)]
+lambda
+rmses[lambda]
+min(rmses)
+```
 
-# Using lambda to redifine b_i and b_u
+
+
+```{r}
+# Using lambda to redefine b_i and b_u
 movie_reg_avgs <- train_set %>% 
      group_by(movieId) %>% 
      summarize(b_i = sum(rating - mu)/(n()+lambda), n_i = n()) 
@@ -201,8 +376,11 @@ movie_reg_avgs <- train_set %>%
           left_join(movie_reg_avgs, by="movieId") %>%
           group_by(userId) %>%
           summarize(b_u = sum(rating - b_i - mu)/(n()+lambda))
+```
 
- # Calculate the
+
+```{r, echo=FALSE}
+# Calculate the new RMSE
      predicted_ratings <- 
           test_set %>% 
           left_join(movie_reg_avgs, by = "movieId") %>%
@@ -217,39 +395,55 @@ movie_reg_avgs <- train_set %>%
 
 
 
-```{r}
+```{r, echo=FALSE}
 rmse_movie_user_model_regularization_result <- RMSE(predicted_ratings, test_set$rating)
 rmse_results <- bind_rows(rmse_results,
                           data.frame(model="Regularization(Movie-Based + User Effects Model)",  
                                      RMSE = rmse_movie_user_model_regularization_result ))
 ```
 
-```{r}
+```{r, echo=FALSE}
 rmse_results %>% knitr::kable()
 ```
+
+Now, applying regularization to both movie and user at the same time we get a better RMSE. We are now closed to our target
+
 
 
 ## Genres
 
+The genre of a movie can affect the rate thata user can give to a movie. Firts we separete the genres by movie as we showed previously and then see if this predictor can help us in obtaining a better RMSE
 
+
+```{r, echo=FALSE}
+#First we create a new dataset with one genre by row
+new_train_set <- train_set %>% 
+    mutate(genre = fct_explicit_na(genres, na_level = "(no genres listed)")
+          ) %>%
+   separate_rows(genre, sep = "\\|")
+
+```
 
 
 ```{r}
-#First we create a new dataset with one genre by row
-new_train_set <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-new_train_set <- rbind(new_train_set, train_set %>% filter(genres == "(no genres listed)"))
-new_test_set <- rbind(new_test_set, new_test_set %>% filter(genres == "(no genres listed)"))
-
-
 # Calculate the average by genre
 genre_avgs <- new_train_set %>% 
    left_join(movie_reg_avgs, by='movieId') %>%
    left_join(user_reg_avgs, by='userId') %>%
    group_by(genres) %>%
    summarize(b_u_g = mean(rating - mu - b_i - b_u ))
+```
 
-# Compute the predicted ratings on validation dataset
+
+```{r, echo=FALSE}
+rm(new_train_set)
+new_test_set <- test_set %>% 
+    mutate(genre = fct_explicit_na(genres, na_level = "(no genres listed)")
+          ) %>%
+   separate_rows(genre, sep = "\\|")
+
+
+# Compute the predicted ratings on test dataset
      predicted_ratings <- 
           new_test_set %>% 
           left_join(movie_reg_avgs, by = "movieId") %>%
@@ -257,636 +451,28 @@ genre_avgs <- new_train_set %>%
           left_join(genre_avgs, by = "genres") %>%
           mutate(pred = mu + b_i + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
           .$pred
-     
+  
  RMSE(predicted_ratings, new_test_set$rating)
 # 0.8956844  0.8326132  0.8251839 0.8761068
 ```
 
-```{r}
+```{r, echo=FALSE}
 rmse_movie_user_genre_model_result <- RMSE(predicted_ratings, new_test_set$rating)
 # Adding the results to the results dataset
 rmse_results <- rmse_results %>% add_row(model="Regularization(Movie+User) + Genre Based Model", RMSE=rmse_movie_user_genre_model_result)
 ```
 
 
-```{r}
-rmse_results %>% knitr::kable()
-```
-
-
-
-
-
-
-
-
-
-### end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Calculating RMSE:
-
-```{r}
-
-new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(movie_reg_avgs, by = "movieId") %>%
-          left_join(user_reg_avgs, by = "userId") %>%
-          left_join(genre_avgs, by = "genres") %>%
-          mutate(pred = mu + b_i + b_u + ifelse(is.na(b_g),0,b_g)) %>%
-          .$pred
- RMSE(predicted_ratings, new_test_set$rating)
-
-```
-Now adding the user for genres:
-
-```{r}
-user_genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
-   left_join(movie_reg_avgs, by='movieId') %>%
-   left_join(user_reg_avgs, by='userId') %>%
-  left_join(genre_avgs, by = "genres") %>%
-   group_by(userId, genres) %>%
-   summarize(b_u_g = mean(rating - mu - b_i - b_u - b_g))
-
- # new version
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(movie_reg_avgs, by = "movieId") %>%
-          left_join(user_reg_avgs, by = "userId") %>%
-          left_join(genre_avgs, by = "genres") %>%
-          left_join(user_genre_avgs, by = c("userId","genres")) %>%
-          mutate(pred = mu + b_i + b_u + b_g + ifelse(is.na(b_u_g),0,b_u_g)) %>%
-          .$pred
-     
- RMSE(predicted_ratings, new_test_set$rating)
-```
-
-
-```{r}
-#delete this or the previous...this is better!
-user_genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
-   left_join(movie_reg_avgs, by='movieId') %>%
-   left_join(user_reg_avgs, by='userId') %>%
-   group_by(userId, genres) %>%
-   summarize(b_u_g = mean(rating - mu - b_i - b_u ))
-
- # new version
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(movie_reg_avgs, by = "movieId") %>%
-          left_join(user_reg_avgs, by = "userId") %>%
-          left_join(genre_avgs, by = "genres") %>%
-          left_join(user_genre_avgs, by = c("userId","genres")) %>%
-          mutate(pred = mu + b_i + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
-          .$pred
-     
- RMSE(predicted_ratings, new_test_set$rating)
-
-```
-
-
-
-
-
-
-
-
-
-
-Obtaaining parameer  $\lambda$:
-
-```{r}
-new_train_set <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-
-lambdas <- seq(0, 100, 5)
-rmses <- sapply(lambdas, function(l){
-     mu <- mean(train_set$rating)
-     b_i <- new_train_set %>%
-          group_by(movieId) %>%
-          summarize(b_i = sum(rating - mu)/(n()+l))
-     b_u <- new_train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          group_by(userId) %>%
-          summarize(b_u = sum(rating - b_i - mu)/(n()+l))
-     b_g_u <- new_train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          left_join(b_u, by="userId") %>%
-          group_by(genres) %>%
-          summarize(b_g_u = sum(rating - b_u - b_i - mu)/(n()+l))
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(b_i, by = "movieId") %>%
-          left_join(b_u, by = "userId") %>%
-          left_join(b_g_u, by = "genres") %>%
-          mutate(pred = mu + b_i + b_u + b_g_u) %>%
-          .$pred
-     return(RMSE(predicted_ratings, test_set$rating))
-})
-
-qplot(lambdas, rmses)  
-
-lambda <- lambdas[which.min(rmses)]
-lambda
-rmses[lambda]
-# no good
-```
-
-
-
-
-
-No regularization:
-
-```{r}
-
-genre_avgs1 <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
-   left_join(movie_avgs, by='movieId') %>%
-   left_join(user_avgs, by='userId') %>%
-   group_by(userId, genres) %>%
-   summarize(b_u_g = mean(rating - mu - b_i - b_u))
-
-
-
-new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
- # new version
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(movie_avgs, by = "movieId") %>%
-          left_join(user_avgs, by = "userId") %>%
-          left_join(genre_avgs1, by = c("userId","genres")) %>%
-          mutate(pred = mu + b_i + b_u + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
-          .$pred
-     
- RMSE(predicted_ratings, new_test_set$rating)
-
-```
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-user_avgs <- edx1 %>% 
-  left_join(movie_effect_avgs, by='movieId') %>%
-  group_by(userId) %>%
-  summarize(b_u = mean(lamda_rating - b_i))
-
-edx4 <- edx3 %>% 
-  #left_join(movie_effect_avgs, by='movieId') %>%
-  group_by(userId) %>%
-  mutate(b_u = mean(rating - mu_hat - b_i)) #%>%
-  #distinct()
-
-
-
-b_u_avg <- mean(user_avgs$b_u)
-```
-
-
-```{r}
-edx2 %>% 
-  group_by(userId) %>% 
-  summarize(b_u = mean(lamda_rating )) %>% 
-  filter(n()>=100) %>%
-  ggplot(aes(b_u)) + 
-  geom_histogram(bins = 30, color = "black") +
-  ggtitle("User effect") +
-  geom_vline(xintercept = b_u_avg, linetype='dashed', color='blue', size=0.5) +
-  xlab("b_u")
-
-# init
-edx4 %>% 
-  group_by(userId) %>% 
-  summarize(b_u = mean(rating - mu_hat - b_i)) %>% 
-  filter(n()>=100) %>%
-  ggplot(aes(b_u)) + 
-  geom_histogram(bins = 30, color = "black")
-```
-The RMSE
-
-
-```{r}
-
-predicted_ratings <-  edx4 %>% 
-  #left_join(movie_effect_avgs, by='movieId') %>%
-  #left_join(user_avgs, by='userId') %>%
-  mutate(pred = mu_hat + b_i + b_u) %>%
-  .$pred
-
-model_2_rmse <- RMSE(edx$rating, predicted_ratings)
-mean(model_2_rmse)
-```
-see movie_effect_avgs & movie_avgs....
-
-with scale we take out user effect.....
-
-
-
-
-
-
-
-
-```{r}
-edx1 <- edx %>% mutate(centered.rating = scale(rating, scale = FALSE))
-
-```
-
-
-
-Now the rating just moved the mu_hat, and the new average in zero. Why? Because when we calculate the average by movie, we do not want to change the average but give more representation to the ones which has more rating and the one with fewer move to the means. The logic behaind is that the probability of the next rate will be the average (in the assuntion of independent event, amongs others)
-
-```{r}
-lambda <- 3
-movie_rate_lambda <- edx1 %>% 
-  group_by(movieId) %>% 
-  mutate(lamda_rating = sum(centered.rating)/(n()+lambda), n = n()) %>%
-  select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
-  distinct()
-
-edx2 <- edx1 %>% 
-  group_by(movieId) %>% 
-  mutate(lamda_rating = sum(centered.rating)/(n()+lambda), n = n())# %>%
-  #select(-rating, -timestamp, -genres, -centered.rating ) %>%
-  #distinct()
-```
-
-Now checks the top movies:
-```{r}
-movie_rate_lambda %>% arrange(desc(lamda_rating))
-
-
-
-```
-Now they are better known and have a significative numbers of rating.
-
-
-
-
-
-### end
-
-
-
-
-
-
-```{r}
-movie_effect_avgs <- movie_rate_lambda %>% 
-  group_by(movieId) %>% 
-  mutate(b_i = mean(lamda_rating)) %>%
-  #select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
-  distinct()
-
-edx3 <- edx2 %>% 
-  group_by(movieId) %>% 
-  mutate(b_i = mean(lamda_rating)) %>%
-  #select(-rating, -userId, -timestamp, -genres, -centered.rating ) %>%
-  distinct()
-
-movie_effect_avgs
-```
-
-
-Let see how this movie effect is distributed:
-```{r}
-b_i_avg <- mean(movie_effect_avgs$b_i)
-movie_effect_avgs %>%
- ggplot(aes(b_i)) + 
-  geom_histogram(bins = 10, color = "black") + 
-  ggtitle("Movie effect") +
-  geom_vline(xintercept = b_i_avg, linetype='dashed', color='blue', size=0.5) +
-  xlab("b_i")
-```
-
-Now compute the RMSE
-
-```{r}
-predicted_ratings <- mu_hat + edx1 %>% 
-     left_join(movie_effect_avgs, by='movieId') %>%
-     .$b_i
-
-model_1_rmse <- RMSE(edx$rating, predicted_ratings)
-mean(model_1_rmse)
-```
-
-
-
-### Movie-Based Model Regularization
-
-One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
-
 ```{r, echo=FALSE}
-movie_rate <- edx %>%
-  group_by(movieId) %>%
-  mutate(avg_rating = mean(rating), n = n()) %>%
-  select(-rating, -userId, -timestamp, -genres ) %>%
-  distinct()
-
-movie_rate %>% arrange(desc(avg_rating))
-
-```
-The best movies we do not see the ones we expected. Is this an error in our knowledge of movies? Take a look to the column n, which n stand for the number of rated received: it is a value to low 1 or 2 rated. Let see what is happening with the worse:
-
-```{r}
-movie_rate %>% arrange(avg_rating)
-```
-We see the same behavior.
-
-This lead us to anew model
-
-$$
- y_{u,i} = \mu + b_{i,r} + \varepsilon_{i,u}
-$$
- $\mu$ the "true" rating for all movies and $b_{i,r}$ the average rating for movie i or the "movie effect" considering the numbers of votes that the move hasand $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0.
-
-We see before in the Movie Distribution that there are a lot of movies with 1 or 2 rating. How many? Can be dropped?
-
-```{r}
-nrow(filter(movie_rate, n <= 2))/nrow(movie_rate)
-
-```
-It is a big group of data. It can not be dropped and it has same information anyway. Can we used? Yes! Here we founf the concept of *regularization*.
-
-Regularization constrains the total variability of the effect sizes by penalizing large estimates that come from small sample sizes.
-
-Let's start with a $\lambda_{i}$ equal to 3 and see the effect.
-
-```{r, echo=FALSE}
-lambda <- 3
-mu <- mean(train_set$rating)
-movie_reg_avgs <- train_set %>% 
-     group_by(movieId) %>% 
-     summarize(b_i = sum(rating - mu)/(n()+lambda), n_i = n()) 
-
-data_frame(original = movie_avgs$b_i, 
-           regularlized = movie_reg_avgs$b_i, 
-           n = movie_reg_avgs$n_i) %>%
-     ggplot(aes(original, regularlized, size=sqrt(n))) + 
-     geom_point(shape=1, alpha=0.5)
-```
-
-The rating of a movie with low "votes" is moved to the mean. Let see whats is happening with this most and worst movies with this change
-
-```{r, message=FALSE}
-movie_titles <- edx %>% 
-     select(movieId, title) %>%
-     distinct()
-
-train_set %>%
-     dplyr::count(movieId) %>% 
-     left_join(movie_reg_avgs) %>%
-     left_join(movie_titles, by="movieId") %>%
-     arrange(desc(b_i)) %>% 
-     select(title, b_i, n) %>% 
-     slice(1:10) %>% 
-     knitr::kable()
-
-train_set %>%
-     dplyr::count(movieId) %>% 
-     left_join(movie_reg_avgs) %>%
-     left_join(movie_titles, by="movieId") %>%
-     arrange(b_i) %>% 
-     select(title, b_i, n) %>% 
-     slice(1:10) %>% 
-     knitr::kable()
-```
-
-Now we can see in the better rating ones that are more well know and the numbers of rating it is not close to 1.
-
-
-Initialy we select $\lambda_{i}$ = 3, but can wwe have a better value?
-
-
-```{r}
-lambdas <- seq(0, 10, 0.25)
-mu <- mean(train_set$rating)
-just_the_sum <- train_set %>% 
-     group_by(movieId) %>% 
-     summarize(s = sum(rating - mu), n_i = n())
-rmses <- sapply(lambdas, function(l){
-     predicted_ratings <- test_set %>% 
-          left_join(just_the_sum, by='movieId') %>% 
-          mutate(b_i = s/(n_i+l)) %>%
-          mutate(pred = mu + b_i) %>%
-          .$pred
-     return(RMSE(predicted_ratings, test_set$rating))
-})
-qplot(lambdas, rmses)  
-lambda_i <-lambdas[which.min(rmses)]
-lambda_i
-```
-
-Yes, $\lambda_{i}$ = 3 give us the better RMSE. Let's calculate now the RMSE.
-
-```{r}
-predicted_ratings <- test_set %>% 
-          left_join(just_the_sum, by='movieId') %>% 
-          mutate(b_i = s/(n_i+lambda_i)) %>%
-          mutate(pred = mu + b_i) %>%
-          .$pred
-
- RMSE(predicted_ratings, test_set$rating)
-```
-
-```{r}
-rmse_movie_model_reg <- RMSE(test_set$rating, predicted_ratings)
-rmse_results <- bind_rows(rmse_results,
-                          data.frame(model="Movie-Based Model Regul",
-                                     RMSE = rmse_movie_model_reg ))
-```
-
-```{r}
 rmse_results %>% knitr::kable()
-```
-
-### User effect regularizated
-
-Not all the users rate the same amount of movies as we see in the data exploration. Is this affect the RMSE in the same way did in the mmovie effect?
-
-If it is true, the new model will be:
-
-
-$$
- y_{u,i} = \mu + b_{i,r} + b_{u,r} + \varepsilon_{i,u}
-$$
-
- 
-  $\mu$ the "true" rating for all movies and $b_{i,r}$ the average rating for movie i or the "movie effect" considering the numbers of votes that the movie i has and $b_{u}$ the average rating for user u or "user effect" considering the numbers of votes that the user u did and $\varepsilon_{i,u}$ independent errors sampled from the same distribution centered at 0.
-
-Obtaaining parameer  $\lambda$:
-
-```{r}
-lambdas <- seq(0, 10, 0.25)
-rmses <- sapply(lambdas, function(l){
-     mu <- mean(train_set$rating)
-     b_i <- train_set %>%
-          group_by(movieId) %>%
-          summarize(b_i = sum(rating - mu)/(n()+lambda_i))
-     b_u <- train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          group_by(userId) %>%
-          summarize(b_u = sum(rating - b_i - mu)/(n()+l))
-     predicted_ratings <- 
-          test_set %>% 
-          left_join(b_i, by = "movieId") %>%
-          left_join(b_u, by = "userId") %>%
-          mutate(pred = mu + b_i + b_u) %>%
-          .$pred
-     return(RMSE(predicted_ratings, test_set$rating))
-})
-
-qplot(lambdas, rmses)  
-
-lambda_u <- lambdas[which.min(rmses)]
-lambda_u
-```
-
-The graphis shows few improvement
-
-
-Calculating RMSE:
-
-```{r}
-
- mu <- mean(train_set$rating)
-     b_i <- train_set %>%
-          group_by(movieId) %>%
-          summarize(b_i = sum(rating - mu)/(n()+lambda_i))
-     b_u <- train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          group_by(userId) %>%
-          summarize(b_u = sum(rating - b_i - mu)/(n()+lambda_u))
-     predicted_ratings <- 
-          test_set %>% 
-          left_join(b_i, by = "movieId") %>%
-          left_join(b_u, by = "userId") %>%
-          mutate(pred = mu + b_i + b_u) %>%
-          .$pred
-     
- RMSE(predicted_ratings, test_set$rating)
-
-# new version
- 
- user_reg_avgs <- train_set %>% 
-          left_join(b_i, by="movieId") %>%
-          group_by(userId) %>%
-          summarize(b_u = sum(rating - b_i - mu)/(n()+lambda_u))
- 
- 
- predicted_ratings <- 
-          test_set %>% 
-          left_join(movie_reg_avgs, by = "movieId") %>%
-          left_join(user_reg_avgs, by = "userId") %>%
-          mutate(pred = mu + b_i + b_u) %>%
-          .$pred
-     
- RMSE(predicted_ratings, test_set$rating)
-```
-This value did not improve signifitative the RMSE!
-
-```{r}
-rmse_movie_model_reg_user_reg <- RMSE(predicted_ratings, test_set$rating)
-
-rmse_results <- bind_rows(rmse_results,
-                          data_frame(model="Movie-Based Model Regularized + User Effects Model Regularized",  
-                                     RMSE = rmse_movie_model_reg_user_reg))
+rm(new_test_set) 
 ```
 
 
-```{r}
-rmse_results %>% knitr::kable()
-```
+The new RMSE get a little better but enough to reach the target. Then this is our model that we are goung to use with validation dataset.
 
 
 
-### Year
-
-
-```{r}
-year_avgs <- train_set %>% 
-     left_join(movie_avgs, by='movieId') %>%
-     left_join(user_avgs, by='userId') %>%
-     group_by(year) %>%
-     summarize(b_y = mean(rating - mu -  b_i - b_u))
-
-predicted_ratings <- test_set %>% 
-     left_join(movie_avgs, by='movieId') %>%
-     left_join(user_avgs, by='userId') %>%
-     left_join(year_avgs, by='year') %>%
-     mutate(pred = mu + b_i + b_u + b_y) %>%
-     .$pred
-RMSE(predicted_ratings, test_set$rating)
-#  0.9044694
-```
-
-### day
-
-
-```{r}
-day_avgs <- train_set %>% 
-     left_join(movie_avgs, by='movieId') %>%
-     left_join(user_avgs, by='userId') %>%
-     group_by(year = as.Date(as.POSIXct(timestamp, origin = "1970-01-01"), "%m/%d/%y")) %>%
-     summarize(b_d = mean(rating - mu -  b_i - b_u))
-
-predicted_ratings <- test_set %>% 
-     mutate(year = as.Date(as.POSIXct(timestamp, origin = "1970-01-01"), "%m/%d/%y")) %>%
-     left_join(movie_avgs, by='movieId') %>%
-     left_join(user_avgs, by='userId') %>%
-     left_join(day_avgs, by='year') %>%
-     mutate(pred = mu + b_i + b_u + b_d) %>%
-     .$pred
-RMSE(predicted_ratings, test_set$rating)
-#  0.9044694
-```
 
 
 
-### Genres
-
-
-```{r}
-#this use userId and genres but genres alne perform better???????
-new_test_set <- test_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-
-user_genre_avgs <- train_set %>% filter(genres != "(no genres listed)") %>% separate_rows(genres) %>%
-   left_join(movie_avgs, by='movieId') %>%
-   left_join(user_avgs, by='userId') %>%
-   group_by(userId, genres) %>%
-   summarize(b_u_g = mean(rating - mu - b_i - b_u ))
-
- # new version
-     predicted_ratings <- 
-          new_test_set %>% 
-          left_join(movie_avgs, by = "movieId") %>%
-          left_join(user_avgs, by = "userId") %>%
-          left_join(genre_avgs, by = "genres") %>%
-          left_join(user_genre_avgs, by = c("userId","genres")) %>%
-          mutate(pred = mu + b_i + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
-          .$pred
-     
- RMSE(predicted_ratings, new_test_set$rating)
-# 0.900801  0.8399976
-```

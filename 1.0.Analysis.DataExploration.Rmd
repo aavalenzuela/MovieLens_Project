@@ -1,65 +1,9 @@
 
 
 # Methods and Analysis
-          section that explains the process and techniques used, including data cleaning, data exploration and visualization, insights gained, and your modeling approach
-
-```{r initial, include = FALSE}
-##########################################################
-# Create edx set, validation set (final hold-out test set)
-##########################################################
-
-# Note: this process could take a couple of minutes
-
-if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
-
-library(tidyverse)
-library(caret)
-library(data.table)
-
-# MovieLens 10M dataset:
-# https://grouplens.org/datasets/movielens/10m/
-# http://files.grouplens.org/datasets/movielens/ml-10m.zip
-
-dl <- tempfile()
-download.file("http://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
-
-ratings <- fread(text = gsub("::", "\t", readLines(unzip(dl, "ml-10M100K/ratings.dat"))),
-                 col.names = c("userId", "movieId", "rating", "timestamp"))
-
-movies <- str_split_fixed(readLines(unzip(dl, "ml-10M100K/movies.dat")), "\\::", 3)
-colnames(movies) <- c("movieId", "title", "genres")
-
-# if using R 3.6 or earlier:
-movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(levels(movieId))[movieId],
-                                            title = as.character(title),
-                                            genres = as.character(genres))
-# if using R 4.0 or later:
-movies <- as.data.frame(movies) %>% mutate(movieId = as.numeric(movieId),
-                                            title = as.character(title),
-                                            genres = as.character(genres))
+          In this section we explain the process and techniques used, including data cleaning, data exploration and visualization, insights gained, and your modeling approach.
 
 
-movielens <- left_join(ratings, movies, by = "movieId")
-
-# Validation set will be 10% of MovieLens data
-set.seed(1, sample.kind="Rounding") # if using R 3.5 or earlier, use `set.seed(1)`
-test_index <- createDataPartition(y = movielens$rating, times = 1, p = 0.1, list = FALSE)
-edx <- movielens[-test_index,]
-temp <- movielens[test_index,]
-
-# Make sure userId and movieId in validation set are also in edx set
-validation <- temp %>% 
-      semi_join(edx, by = "movieId") %>%
-      semi_join(edx, by = "userId")
-
-# Add rows removed from validation set back into edx set
-removed <- anti_join(temp, validation)
-edx <- rbind(edx, removed)
-
-rm(dl, ratings, movies, test_index, temp, movielens, removed)
-```
 
 
 
@@ -88,23 +32,22 @@ with $N$ being the number of user/movie combinations and the sum occurring over 
 
 ## The dataset
 
-The movielens 10M dataset has `r format(nrow(movielens),big.mark=",")` rows but this only  `r format(n_distinct(movielens$movieId),big.mark=",")` different movies and `r format(n_distinct(movielens$userId),big.mark=",")` users. But if we create a matrix of the movies that we have in the dataset and the users we get a matrix of `r  n_distinct(movielens$movieId) * n_distinct(movielens$userId)` elements with a rating witch represent only the `r  format(100 * nrow(movielens)/(n_distinct(movielens$movieId) * n_distinct(movielens$userId)), digits =2, nsmall =2)`% of the matrix. The rest is unknown: the user $u$ did not rate the movie $i$.
+The movielens 10M dataset had been split in edx and validation (90% and 10% respectively). Because we do not know nothing about validation (only we deduced from edx) we can see that edx has `r format(nrow(edx),big.mark=",")` rows but this only  `r format(n_distinct(edx$movieId),big.mark=",")` different movies and `r format(n_distinct(edx$userId),big.mark=",")` users. But if we create a matrix of the movies that we have in the dataset and the users we get a matrix of `r  n_distinct(edx$movieId) * n_distinct(edx$userId)` elements with a rating witch represent only the `r  format(100 * nrow(edx)/(n_distinct(edx$movieId) * n_distinct(edx$userId)), digits =2, nsmall =2)`% of the matrix. The rest is unknown: the user $u$ did not rate the movie $i$.
 A matrix with mostly empty cells is called sparse, and the opposite to that (a mostly filled matrix) is called dense.
 
 ## Exploration
 Each row in this dataset is and rating to the  movie i by the user u. But more info is stored and we will review initially if we can see some aspect we need to considered in the model.
 
-Remeber, we hace this columns:
-```{r , echo=FALSE}
-names(movielens)
+Remeber, we have these columns:
+```{r, echo=FALSE}
+names(edx)
 ```
 The features/variables/columns in dataset are:
 
 | Name       | Type     | Description     |
 | :--------- | :------: | :-------------- |
 |**movieId**|`r class(edx$movieId)`|  contains the unique identification number for each movie.
-|**title**|`r class(edx$title)`|  contains the title of each movie.
-|**year**| `r class(edx$year)`| contains the year of the movie release.
+|**title**|`r class(edx$title)`|  contains the title of each movie and the year of release.
 |**genres**|`r class(edx$genres)`| contains a list of pipe-separated of genre of each movie.
 |**userId**|`r class(edx$userId)`| contains the unique identification number for each user.
 |**rating**|`r class(edx$rating)`| contains the rating of one movie by one user. Ratings are made on a 5-Star scale with half-star increments.
@@ -122,21 +65,21 @@ n_distinct(edx$movieId)
 n_distinct(edx$title)
 
 ```
-They are not. This is because some movies has the same title but not the same movieId...Why? Because they are released in different year!
+They are not. This is because some movies has the same title but not the same movieId...Why? 
 
 ```{r, echo=FALSE, message=FALSE}
 
-edx %>% group_by(movieId,title,year) %>% summarize(n()) %>% 
-  group_by(title)%>%summarize(n = n(), year = year) %>% filter( n != 1)
+edx %>% group_by(movieId,title) %>% summarize(n()) %>% 
+  group_by(title)%>%summarize(n = n(), movieId = movieId) %>% filter( n != 1)
 
 ```
 
-Then we use the movieID for the analysis and the title it is not, except to show the results to make sense to ourself.
+Then we use the movieID for the analysis and the title it is not, except to show the results to make sense to our self.
 
 One aspect to consider is that not all the movies has the same numbers of rating, e. gr., some movies has more vote than the others as we can see in the following histograms:
 
 ```{r histograms_M10, echo=FALSE}
-movielens %>% 
+edx %>% 
   dplyr::count(movieId) %>% 
   ggplot(aes(n)) + 
   geom_histogram(bins = 30, color = "black") + 
@@ -144,10 +87,12 @@ movielens %>%
   ggtitle("Movies rated") +
   xlab("Number of rate per movie (log scale)")
 ```
+You can see some movies has over a hundred of rating but one hundred of rating it is quite usual.
+
 And obviously, not all the movies are rated equally:
 
 ```{r, echo=FALSE}
-movielens %>% 
+edx %>% 
   group_by(movieId) %>% 
   summarise(avg_by_movieId = mean(rating), n = n()) %>%
   ggplot(aes(avg_by_movieId)) + 
@@ -156,22 +101,26 @@ movielens %>%
   ggtitle("Movies rating") +
   xlab("Rating")
 ```
-
+and here where our prediction system enter in play.
 
 
 ### rating
 
-The rating is the value we want to predict but it is present in our dataset.
+The rating is the value we want to predict but it is present in our dataset. This one allow us to training our system and it is called supervised learning algorithms in the AI.
 
 ```{r,echo=FALSE}
 unique(edx$rating) %>% data.frame() %>% arrange_all() %>% t() %>% as.numeric()
 ```
+
+As we mention, the output it is a discrete, only 10 possible values.
+
+
 ### userId
 
-This is the user who rate or vote. Not the users rate the same amount of movies as we can see in the following histograms:
+This is the user who rate or vote. Not all the users rate the same amount of movies as we can see in the following histograms:
 
 ```{r, echo=FALSE}
-movielens %>%
+edx %>%
   dplyr::count(userId) %>% 
   ggplot(aes(n)) + 
   geom_histogram(bins = 30, color = "black") + 
@@ -179,11 +128,13 @@ movielens %>%
   ggtitle("Users who rate") +
   xlab("Number of users who rate movies (log scale)")
 ```
+Yo can see that are user that rate over a one thousand of movies!
 
+Again, not all the user rate the movies in the same way.
 
 ```{r, echo=FALSE}
 
-movielens %>%
+edx %>%
   group_by(userId) %>% 
   summarise(avg_by_userId = mean(rating), n = n()) %>%
   ggplot(aes(avg_by_userId)) + 
@@ -192,31 +143,7 @@ movielens %>%
   xlab("rating")
 ```
 
-### year
-The yaer of the release of the movie can be affected in the rating? Too old movies can be under estemimeted under the new ones?
 
-
-```{r , echo=FALSE}
-movielens %>%
-  dplyr::count(year) %>% 
-  ggplot(aes(x=year,y=n)) + 
-  geom_line() + 
-  #scale_x_log10() +
-  ggtitle("Movie rated by Year of the release") +
-  xlab("Year of the release of the movie") +
-  ylab("count")
-```
-Is the rating independent of the year of the movie?
-
-```{r, echo=FALSE}
-movielens %>%
-  group_by(year) %>% 
-  summarise(avg_by_year = mean(rating), n = n()) %>%
-  ggplot(aes(avg_by_year)) + 
-  geom_histogram(bins = 30, color = "black") + 
-  ggtitle("Rating by Year of the movie") +
-  xlab("Rating")
-```
 
 
 ### timestamp
@@ -224,7 +151,7 @@ movielens %>%
 Is the rating process affected by the time? timestamp can help us to find any relationship. First the histogram of the rating:
 
 ```{r , echo=FALSE}
-movielens %>%
+edx %>%
   mutate(date = as.Date(as.POSIXct(timestamp, origin = "1970-01-01"))) %>%
   dplyr::count(date) %>% 
   ggplot(aes(n)) + 
@@ -235,11 +162,14 @@ movielens %>%
 
 
 ```
+Here we can not see to much dispersion of the data but it is not constant. Let get more detail.
 
-The rating procees it is constant over time:
+
+
+Let's see the rating over time:
 
 ```{r, echo=FALSE}
-movielens %>%
+edx %>%
   dplyr::count(timestamp) %>% 
   ggplot(aes(as.Date(as.POSIXct(timestamp, origin = "1970-01-01")))) + 
   geom_histogram(bins = 30) + 
@@ -247,31 +177,33 @@ movielens %>%
   xlab("Year") +
   ylab("count")
 ```
-But all year the user are rating equal? This histogram shows they do not.
+We see it is not constant. But all year the user are rating equal? This histogram shows they do not.
 
 ```{r, echo=FALSE}
-movielens %>%
+edx %>%
   group_by(timestamp) %>% 
   summarise(avg_by_tm = mean(rating), n = n()) %>%
   ggplot(aes(avg_by_tm)) + 
   geom_histogram(bins = 10, color = "black") + 
-  ggtitle("Rateing by Year of the movie") +
+  ggtitle("Rateing by Tiestamp of the movie") +
   xlab("Rating")
 ```
+It is not to different from the prevoos rating graphs.
+
 
 ### genres
 
-The genres in an arbitrary attribute that a move has. Actually can have more than one gender that in this dataset is separated in this column by |.
+The genres in an arbitrary attribute that a move has. Actually can have more than one gender that in this dataset is separated in this column by pile line.
 
 
 ```{r}
 n_distinct(edx$genres)
 ```
-Then we have a lot of genres!
+Then we have a lot of genres and they are not equally distributed!
 
 
 ```{r, echo=FALSE}
-movielens %>% group_by(genres) %>%
+edx %>% group_by(genres) %>%
   summarise(n = n(), rat_gen = mean(rating)) %>%
   ggplot(aes(rat_gen)) + 
   geom_histogram(bins = 30, color = "black") + 
@@ -292,20 +224,23 @@ We can create a new dataset that separate this genres, making the dataset bigger
 
 ```{r, echo=FALSE}
 
-edx_genres <- edx %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
+edx_genres <- edx %>% 
+   mutate(genres = fct_explicit_na(genres, na_level = "(no genres listed)")
+          ) %>%
+   separate_rows(genres, sep = "\\|")
 head(edx_genres)
 ```
-
+This process of separate the genres took a lot of memory: with less than 8 Gb in a linux system the R crash! 
 
 ```{r}
-n_distinct(edx_genres$genres)
-unique(edx_genres$genres)
+n_distinct(edx_genres$genre)
+unique(edx_genres$genre)
 ```
 
-Now can we see by genres thare are differences:
+Now we can repite the same question about the gender, now with this new classification of genres, can we see by genres thare are differences:
 
 ```{r, echo=FALSE}
-edx_genres %>% group_by(genres) %>%
+edx_genres %>% group_by(genre) %>%
   summarise(n = n(), rat_gen = mean(rating)) %>%
   ggplot(aes(rat_gen)) + 
   geom_histogram(bins = 30, color = "black") + 
@@ -316,9 +251,9 @@ edx_genres %>% group_by(genres) %>%
 And we can see that different genres has different average rating:
 
 ```{r, echo=FALSE}
-edx_genres %>% group_by(genres) %>%
+edx_genres %>% group_by(genre) %>%
   summarise(n = n(), rat_gen = mean(rating)) %>%
-  ggplot(aes(x= genres, y=rat_gen)) + 
+  ggplot(aes(x= genre, y=rat_gen)) + 
   geom_point() + 
   ggtitle("Rating by the Gender") +
   xlab("Genres") +
@@ -327,4 +262,4 @@ edx_genres %>% group_by(genres) %>%
 ```
 
 
-
+We just saw these data that came in the edx. Now the question is: How is it the rating affected by this predictors?
