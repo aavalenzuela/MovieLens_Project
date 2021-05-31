@@ -6,7 +6,7 @@ output:
 
 # Overview/Executive Summary
 
-                  In this section we describe the dataset and summarizes the goal of the project and key steps that were performed
+*In this section we describe the dataset and summarizes the goal of the project and key steps that were performed.*
       
 This project is part of the Capstone of the Professional Certificate Program of Data Science and it has as scope to create a movie recommendation system using the MovieLens dataset. There are several versions of this movielens, for example the one included in the dslabs package is just a small subset of a much larger dataset and the one we are going to use with a dataset with 10 millions of ratings, called Movielens 10M. This big dataset add the difficulty of more data require more time y computing resources, that force to discard some high consume resource algorithm because it can not ran in R with this volume but it gives the opportunity to work with more realistic big data.
 
@@ -20,7 +20,7 @@ Recommendation systems are referred to as systems and tools that provide suggest
 
 The MovieLens dataset is a table witch each row it is rating to a movie provided by one user and has the following structure:
 
-```{r initial, include = FALSE}
+```{r Overview Initial Setup, include = FALSE}
 ##########################################################
 # Create edx set, validation set (final hold-out test set)
 ##########################################################
@@ -79,12 +79,13 @@ rm(dl, ratings, movies, test_index, temp, movielens, removed)
 ```
 
 
-```{r initial2, echo=TRUE}
+```{r Exploring edx, echo=TRUE}
 names(edx)
 ```
 
-Looking some rows (for space it is shown in two parts)
-```{r initial3, echo=FALSE}
+Looking some rows:
+
+```{r Some rows of edx, echo=FALSE}
 head(edx)
 
 ```
@@ -94,7 +95,7 @@ head(edx)
 The rating is an numeric running from 0.5 througth 5 by 0.5 step. This means 10 possible options to the user who make the rating.
 For evaluate the algorithm we are going to use the Root Mean Square Error (RMSE) [https://en.wikipedia.org/wiki/Root-mean-square_deviation]. This take advantage of the numeric characteristic of rating and in R can be represented as:
 
-```{r initial4, echo=TRUE}
+```{r Loss Function definition, echo=TRUE}
 RMSE <- function(true_ratings, predicted_ratings){
   sqrt(mean((true_ratings - predicted_ratings)^2))
 }
@@ -103,7 +104,7 @@ RMSE <- function(true_ratings, predicted_ratings){
 ## Approach
 The develop of this predicting rating system for moveis can be explained in the follows steps:
 
-1.- Start creating the model and explained why this approach was taken. The main, but not the only, approach is in base of Data Science: Machine Learning from	Harvard University (course HarvardX+PH125.8x). The objective of the final model it is to get and get a *RMSE < 0.86490* in the validation set.
+1.- Start creating the model and explained why this approach was taken. The main, but not the only, approach is in base of Data Science: Machine Learning from	Harvard University (course HarvardX+PH125.8x). The objective of the final model it is to get and get a **RMSE < 0.86490** in the validation set.
 
 The algorithm is developed using the training (edx) set. For a final test of the final algorithm, predict movie ratings in the validation set (the final hold-out test set) as if they were unknown. In others words, the validation data (the final hold-out test set) should NOT be used for training, developing, or selecting your algorithm and it should ONLY be used for evaluating the RMSE of your final algorithm
 
@@ -111,6 +112,5 @@ The algorithm is developed using the training (edx) set. For a final test of the
 
 3.- Continue with the final validation with this trained algorithm 
 
-            that describes the dataset and summarizes the goal of the project and key steps that were performed
-            
+
 \newpage

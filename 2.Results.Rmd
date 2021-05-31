@@ -1,5 +1,5 @@
 # Results
-    This section presents the modeling results and discusses the model performance
+*This section presents the modeling results and discusses the model performance.*
 
 
 In the previous section we use edx to build a model can give us a RMSE under the target. Now we are going to use the same steps, but with the edx to construct the model in the same way and the validation the dataset to test if we reach our target.
@@ -7,7 +7,7 @@ In the previous section we use edx to build a model can give us a RMSE under the
 
 
 
-```{r, echo=FALSE}
+```{r Results housekeeping, echo=FALSE, results='hide'}
 #Delete data that we do not need
 rm( test_index, test_set, train_set, lambda_i)
 gc()
@@ -18,7 +18,7 @@ gc()
 ## Fisrt Model...just the average movie rating
 
 We start with the average of the movie as the nitial predictor.
-```{r}
+```{r Results Fisrt Model}
 # Average in edx dataset
 mu <- mean(edx$rating)
 # Predict the RMSE on the validation set
@@ -34,7 +34,7 @@ rmse_results_v %>% knitr::kable()
 ## Movie-Based Model
 
 We continue taking in consideration the movie effect:
-```{r}
+```{r Results Movie-Based Model}
 # Calculate the average by movie
 movie_avgs <- edx %>%
    group_by(movieId) %>%
@@ -64,7 +64,7 @@ As before, we get a good improvement.
 ## User effect
 
 Now continue with the user effect.
-```{r}
+```{r Results User effect}
 # Calculate the average by user
 user_avgs <- edx %>%
    left_join(movie_avgs, by='movieId') %>%
@@ -96,11 +96,10 @@ The improvement is as expected.
 
 ## Regularization
 
-Fer regularization, we already know the we get better result condifering both movie and user regularization at the same time. We are going to use $\lambda$ calculated before (`r lambda`)
+Fer regularization, we already know the we get better result considering both movie and user regularization at the same time. We are going to use $\lambda$ calculated before (`r lambda`)
 
-```{r}
-# lambda calculated previously
-#lambda <- 3.25
+```{r Results Regularization}
+# We use lambda calculated previously
 
 # Using lambda to redefine b_i and b_u
 movie_reg_avgs <- edx %>% 
@@ -120,8 +119,6 @@ user_reg_avgs <- edx %>%
           mutate(pred = mu + b_i + b_u ) %>%
           .$pred
      
-# RMSE(predicted_ratings, validation$rating)
- # 0.8648736
 ```
 
 
@@ -141,25 +138,6 @@ rmse_results_v %>% knitr::kable()
 
 
 
-```{r}
-#delete
-new_edx <- edx %>%
-   mutate(genre = fct_explicit_na(genres, na_level = "(no genres listed)")
-          ) %>%
-   separate_rows(genre, sep = "\\|")
-```
-
-
-```{r}
-#delete
-rm(new_edx)
-gc()
-new_edx <- edx[1:1e6] %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-new_edx <- rbind(new_edx, edx  %>% filter(genres == "(no genres listed)"))
-new_edx <- rbind(new_edx, edx[1e6+1:2e6] %>% filter(genres != "(no genres listed)") %>% separate_rows(genres))
-
-
-```
 
 
 ## Genres
@@ -168,9 +146,10 @@ As the last step it is use the genre of the movie as a predictor. For that we ar
 
 ```{r}
 #First we create a new dataset with one genre by row
-#new_edx <- edx %>% select(-title, -timestamp) %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-#new_edx <- rbind(new_edx, edx %>% select(-title, -timestamp) %>% filter(genres == "(no genres listed)"))
-
+edx_genres <- edx %>% 
+   mutate(genre = fct_explicit_na(genres, na_level = "(no genres listed)")
+          ) %>%
+   separate_rows(genre, sep = "\\|")
 
 # Calculate the average by genre
 genre_avgs <- edx_genres %>% 
@@ -179,9 +158,6 @@ genre_avgs <- edx_genres %>%
    group_by(genres) %>%
    summarize(b_u_g = mean(rating - mu - b_i - b_u ))
 
-#rm(new_edx)
-#new_validation <- validation %>% select(-title, -timestamp) %>% filter(genres != "(no genres listed)") %>% separate_rows(genres)
-#new_validation <- rbind(new_validation, validation %>% select(-title, -timestamp) %>% filter(genres == "(no genres listed)"))
 
 validation_genres <- validation %>% 
    mutate(genres = fct_explicit_na(genres, na_level = "(no genres listed)")
@@ -197,8 +173,7 @@ validation_genres <- validation %>%
           mutate(pred = mu + b_i + b_u + ifelse(is.na(b_u_g),0,b_u_g)) %>%
           .$pred
      
-# RMSE(predicted_ratings, new_validation$rating)
-# 0.8956844  0.8326132  0.8251839 0.8761068
+
 ```
 
 
@@ -213,3 +188,4 @@ rmse_results_v <- rmse_results_v %>% add_row(model="Regularization(Movie+User) +
 ```{r, echo=FALSE}
 rmse_results_v %>% knitr::kable()
 ```
+\newpage

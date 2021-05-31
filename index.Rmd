@@ -15,8 +15,7 @@ always_allow_html: yes
 description: This book introduces concepts and skills that can help you tackle real-world
   data analysis challenges. It covers concepts from probability, statistical inference,
   linear regression and machine learning and helps you develop skills such as R programming,
-  data wrangling with dplyr, data visualization with ggplot2, file organization with
-  UNIX/Linux shell, version control with GitHub, and reproducible document preparation
+  data wrangling with dplyr, data visualization and reproducible document preparation
   with R markdown.
   
 ---
