@@ -1,5 +1,7 @@
 ## Fisrt Model...just the average movie rating
 
+We are now to create our models. For that we are not to use the validation, we are going to take edx ans split in train and test set. We are going to test in the last group and when we are satisfy with the RMSE, we are going to move to de final validation.
+
 ```{r}
 # To construct our model, create our training and test
 

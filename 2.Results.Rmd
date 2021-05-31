@@ -2,7 +2,7 @@
     This section presents the modeling results and discusses the model performance
 
 
-In the previous section we use edx to build a model can give us a RMSE under the target. Now er are going to use the same steps, but with the edx to contruct the model in the same way and the validation the dataset to test if we reach our target.
+In the previous section we use edx to build a model can give us a RMSE under the target. Now we are going to use the same steps, but with the edx to construct the model in the same way and the validation the dataset to test if we reach our target.
 
 
 
@@ -16,6 +16,8 @@ gc()
 
 
 ## Fisrt Model...just the average movie rating
+
+We start with the average of the movie as the nitial predictor.
 ```{r}
 # Average in edx dataset
 mu <- mean(edx$rating)
@@ -30,6 +32,8 @@ rmse_results_v %>% knitr::kable()
 ```
 
 ## Movie-Based Model
+
+We continue taking in consideration the movie effect:
 ```{r}
 # Calculate the average by movie
 movie_avgs <- edx %>%
@@ -54,8 +58,12 @@ rmse_results_v <- rmse_results_v %>% add_row(model="Movie-Based Model", RMSE=rms
 rmse_results_v %>% knitr::kable()
 ```
 
+As before, we get a good improvement.
+
+
 ## User effect
 
+Now continue with the user effect.
 ```{r}
 # Calculate the average by user
 user_avgs <- edx %>%
@@ -83,9 +91,12 @@ rmse_results_v <- rmse_results_v %>% add_row(model="Movie-Based + User Effects M
 ```{r, echo=FALSE}
 rmse_results_v %>% knitr::kable()
 ```
+The improvement is as expected.
 
 
 ## Regularization
+
+Fer regularization, we already know the we get better result condifering both movie and user regularization at the same time. We are going to use $\lambda$ calculated before (`r lambda`)
 
 ```{r}
 # lambda calculated previously
@@ -152,6 +163,8 @@ new_edx <- rbind(new_edx, edx[1e6+1:2e6] %>% filter(genres != "(no genres listed
 
 
 ## Genres
+
+As the last step it is use the genre of the movie as a predictor. For that we are going to separete each movie in each genre as we did before with the variable edx_genres.
 
 ```{r}
 #First we create a new dataset with one genre by row
