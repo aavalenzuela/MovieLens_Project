@@ -1,6 +1,6 @@
 ## Fisrt Model...just the average movie rating
 
-We are now to create our models. For that we are not to use the validation, we are going to take edx ans split in train and test set. We are going to test in the last group and when we are satisfy with the RMSE, we are going to move to de final validation.
+We are now to create our models. For that we are not to use the validation, we are going to take edx and split in train and test set. We are going to test in the last group and when we are satisfy with the RMSE, we are going to move to the final validation.
 
 ```{r Creating training and test in base of edx}
 # To construct our model, create our training and test in base of edx
@@ -15,7 +15,7 @@ test_set <- test_set %>%
 ```
 
 
-We start now making the first model. But remember, not with the whole movilen 10M dataset, only with the training.
+We start now making the first model. But remember, not with the whole movielen 10M dataset, only with the training.
 
 The most basic and quick approach it is consider that a rating for a movie is just the average of all rating, e. gr., assumes the same rating for all movies and all users.
 
@@ -171,7 +171,7 @@ Considering the user we obtain a new improvement. We are now close to our target
 
 ### Movie-Based Model Regularization
 
-One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with de best and worst movie according to the rating:
+One aspect in the machine learning is to check the data and see id it is leading us to a wrong conclusion. We start with the best and worst movie according to the rating:
 
 ```{r Movie-Based Model Regularization, echo=FALSE}
 movie_rate <- edx %>%
@@ -205,7 +205,10 @@ We see before in the Movie Distribution that there are a lot of movies with 1 or
 
 ```{r Movies with few votes, echo=FALSE}
 # Movies with low numbers of rating in the dataset
-nrow(filter(movie_rate, n <= 2))/nrow(movie_rate)
+
+library(scales)
+
+percent(nrow(filter(movie_rate, n <= 2))/nrow(movie_rate), accuracy = 2)
 
 ```
 It is not a big group of data. It can be dropped but it has same information anyway. Can we used? Yes! Here we found the concept of *regularization*.
@@ -245,9 +248,9 @@ movie_reg_avgs %>%
    arrange(desc(b_i))
 ```
 
-And most unpopular movies are:
+And less popular movies are:
 
-```{r egularization New Most Popular, message=FALSE, echo=FALSE}
+```{r Regularization New Most Popular, message=FALSE, echo=FALSE}
 movie_reg_avgs %>% 
    left_join(movie_titles, by="movieId") %>%
    arrange(b_i) 
@@ -318,7 +321,7 @@ Now er are going to see the effect of regularization using $\lambda$ that consid
 
 Obtaining  the parameter  $\lambda$:
 
-```{r  Regularization Movie  and User effect}
+```{r  Regularization Movie and User effect}
 #Looking  for lambda for movie and user effect
 lambdas <- seq(0, 10, 0.25)
 rmses <- sapply(lambdas, function(l){
@@ -363,7 +366,7 @@ movie_reg_avgs <- train_set %>%
 
 
 ```{r , echo=FALSE}
-# Calculate the new RMSE wiht Regularization of movie and user
+# Calculate the new RMSE whit Regularization of movie and user
      predicted_ratings <- 
           test_set %>% 
           left_join(movie_reg_avgs, by = "movieId") %>%

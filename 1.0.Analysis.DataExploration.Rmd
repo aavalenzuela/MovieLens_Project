@@ -66,7 +66,7 @@ edx %>% group_by(movieId,title) %>% summarize(n()) %>%
 
 ```
 
-Then we use the movieID for the analysis and the title it is not, except to show the results to make sense to our self.
+Then we use the movieId for the analysis and the title it is not, except to show the results to make sense to our self.
 
 One aspect to consider is that not all the movies has the same numbers of rating, e. gr., some movies has more vote than the others as we can see in the following histograms:
 
@@ -180,7 +180,7 @@ edx %>%
   ggtitle("Rating by Timestamp of the movie") +
   xlab("Rating")
 ```
-It is not to different from the prevoos rating graphs.
+It is not to different from the previous rating graphs.
 
 
 ### genres
@@ -212,7 +212,7 @@ head(edx) %>%
 
 We can create a new dataset that separate this genres, making the dataset bigger and taking care of 2 aspects:
 
-1.- If we do in the training set we hve to do it in the validation set
+1.- If we do in the training set we have to do it in the validation set
 
 2.- **Only** use for genres analysis, because we are going to change the dataset and any other analysis will be mislead
 

@@ -17,7 +17,7 @@ gc()
 
 ## Fisrt Model...just the average movie rating
 
-We start with the average of the movie as the nitial predictor.
+We start with the average of the movie as the initial predictor.
 ```{r Results Fisrt Model}
 # Average in edx dataset
 mu <- mean(edx$rating)
@@ -140,11 +140,11 @@ rmse_results_v %>% knitr::kable()
 
 
 
-## Genres
+## Genre
 
-As the last step it is use the genre of the movie as a predictor. For that we are going to separete each movie in each genre as we did before with the variable edx_genres.
+As the last step it is use the genre of the movie as a predictor. For that we are going to separate each movie in each genre as we did before with the variable edx_genres.
 
-```{r}
+```{r Results adding genre}
 #First we create a new dataset with one genre by row
 edx_genres <- edx %>% 
    mutate(genre = fct_explicit_na(genres, na_level = "(no genres listed)")
@@ -185,7 +185,7 @@ rmse_results_v <- rmse_results_v %>% add_row(model="Regularization(Movie+User) +
 
 
 
-```{r, echo=FALSE}
+```{r Final result with Regularization of Movie_User and Genre Based Model, echo=FALSE}
 rmse_results_v %>% knitr::kable()
 ```
 \newpage

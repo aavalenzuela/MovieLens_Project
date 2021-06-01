@@ -1,6 +1,6 @@
 book_filename: "MovieLens_Project"
 output_dir: "_docs"
-delete_merged_file: true
+delete_merged_file: false
 language:
   label:
     fig: "FIGURE "

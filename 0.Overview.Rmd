@@ -92,7 +92,7 @@ head(edx)
 
 
 ## Evaluation
-The rating is an numeric running from 0.5 througth 5 by 0.5 step. This means 10 possible options to the user who make the rating.
+The rating is an numeric running from 0.5 through 5 by 0.5 step. This means 10 possible options to the user who make the rating.
 For evaluate the algorithm we are going to use the Root Mean Square Error (RMSE) [https://en.wikipedia.org/wiki/Root-mean-square_deviation]. This take advantage of the numeric characteristic of rating and in R can be represented as:
 
 ```{r Loss Function definition, echo=TRUE}
@@ -102,7 +102,7 @@ RMSE <- function(true_ratings, predicted_ratings){
 ```
 
 ## Approach
-The develop of this predicting rating system for moveis can be explained in the follows steps:
+The develop of this predicting rating system for movies can be explained in the follows steps:
 
 1.- Start creating the model and explained why this approach was taken. The main, but not the only, approach is in base of Data Science: Machine Learning from	Harvard University (course HarvardX+PH125.8x). The objective of the final model it is to get and get a **RMSE < 0.86490** in the validation set.
 
