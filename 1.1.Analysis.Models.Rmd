@@ -206,9 +206,7 @@ We see before in the Movie Distribution that there are a lot of movies with 1 or
 ```{r Movies with few votes, echo=FALSE}
 # Movies with low numbers of rating in the dataset
 
-library(scales)
-
-percent(nrow(filter(movie_rate, n <= 2))/nrow(movie_rate), accuracy = 2)
+paste(round(100*nrow(filter(movie_rate, n <= 2))/nrow(movie_rate),3), "%")
 
 ```
 It is not a big group of data. It can be dropped but it has same information anyway. Can we used? Yes! Here we found the concept of *regularization*.
